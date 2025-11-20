@@ -4,6 +4,8 @@
 
 While conceptually similar to the renowned [Ruckig](https://github.com/pantor/ruckig) library, S7RTT is specifically optimized for **single-axis applications**, offering a streamlined alternative for embedded systems and real-time control loops where low latency and deterministic execution are paramount.
 
+![](doc/img/MAIN.png)
+
 ## 🚀 Key Features
 
 S7RTT provides a robust solution for time-optimal trajectory generation with the following capabilities:
@@ -31,6 +33,9 @@ Benchmarks conducted on C++ platforms highlight the efficiency of S7RTT:
 *   **Faster Computation:** S7RTT requires significantly less CPU time per calculation cycle compared to Ruckig.
 *   **Lower Jitter:** The calculation time is more deterministic with lower variance (jitter), making it highly suitable for hard real-time systems where timing budgets are strict.
 
+(Measure cycle time compare chart, The unit is nanoseconds)
+![](doc/img/CycleTimeCompare.png)
+
 ## 📝 Summary & Acknowledgements
 
 S7RTT aims to provide a simple, fast, and reliable trajectory generator for single-axis motion control tasks. By simplifying the problem space (fixing target acceleration to zero), it achieves extremely high performance and code simplicity.
@@ -38,3 +43,4 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
