@@ -20,11 +20,15 @@ S7RTT provides a robust solution for time-optimal trajectory generation with the
 
 S7RTT is not intended to replace Ruckig for multi-DOF or complex non-zero target acceleration cases, but it offers distinct advantages in specific single-axis scenarios:
 
-1.  **Standard Trajectories:** For normal point-to-point moves, calculation results are consistent with Ruckig.
-2.  **Velocity Limits:** S7RTT demonstrates superior trajectory optimization when handling cases where the maximum velocity limit is dynamically lowered or constrained.
+1.  **Standard Trajectories:** For normal point-to-point moves, calculation results are consistent with Ruckig.  
+![](doc/img/Compare_Normal.png)
+2.  **Velocity Limits:** S7RTT demonstrates superior trajectory optimization when handling cases where the maximum velocity limit is dynamically lowered or constrained.  
+![](doc/img/Compare_V0_Overrange.png)
 3.  **Boundary Conditions:**
-    *   In many edge cases, performance is comparable.
-    *   Ruckig currently maintains an edge in robustness regarding specific complex mathematical boundary singularities.
+    *   In many edge cases, performance is comparable.  
+![](doc/img/Compare_Complex.png)
+    *   Ruckig currently maintains an edge in robustness regarding specific complex mathematical boundary singularities.  
+![](doc/img/Compare_Boundary.png)
 
 ## ⚡ Performance
 
@@ -43,4 +47,5 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
 
