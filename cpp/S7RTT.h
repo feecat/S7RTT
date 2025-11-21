@@ -1,471 +1,522 @@
+// ==============================================================================
+// File Name:    S7RTT.h
+// Author:       feecat
+// Version:      V1.3
+// Description:  Simple 7seg Real-Time Trajectory Generator
+// Website:      https://github.com/feecat/S7RTT
+// License:      Apache License Version 2.0
+// ==============================================================================
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// ==============================================================================
+
 #ifndef S7RTT_H
 #define S7RTT_H
 
 #include <cmath>
 #include <vector>
-#include <algorithm>
 #include <limits>
+#include <algorithm>
+#include <iostream>
+#include <tuple>
+#include <array>
 
 namespace S7RTT_Lib {
 
-// ==========================================
-// 1. Data Structures
-// ==========================================
-
-/**
- * @brief Represents the instantaneous kinematic state of the system.
- */
+// ==============================================================================
+// MotionState
+// ==============================================================================
 struct MotionState {
-    double p; // Position
-    double v; // Velocity
-    double a; // Acceleration
-    double j; // Jerk
+    double dt; // Duration of this segment
+    double p;  // Position
+    double v;  // Velocity
+    double a;  // Acceleration
+    double j;  // Jerk
 
-    MotionState(double _p = 0.0, double _v = 0.0, double _a = 0.0, double _j = 0.0)
-        : p(_p), v(_v), a(_a), j(_j) {}
-};
+    MotionState(double _dt = 0.0, double _p = 0.0, double _v = 0.0, double _a = 0.0, double _j = 0.0)
+        : dt((_dt > 0.0) ? _dt : 0.0), p(_p), v(_v), a(_a), j(_j) {}
 
-/**
- * @brief Represents a constant jerk segment (a standard block of an S-Curve).
- */
-struct Segment {
-    double jerk;
-    double duration;
-
-    Segment(double _jerk, double _duration) : jerk(_jerk) {
-        duration = (_duration > 0.0) ? _duration : 0.0;
+    friend std::ostream& operator<<(std::ostream& os, const MotionState& s) {
+        os << "State(dt=" << s.dt << ", P=" << s.p << ", V=" << s.v
+           << ", A=" << s.a << ", J=" << s.j << ")";
+        return os;
     }
 };
 
-// ==========================================
-// 2. Mathematical Solver (Templated for Performance)
-// ==========================================
+// ==============================================================================
+// Internal Lightweight Structures (Stack Allocated)
+// ==============================================================================
+// Represents a single simplified segment for calculation (time + jerk)
+struct SegmentLite {
+    double dt;
+    double j;
+};
 
+// Represents an acceleration or deceleration phase (max 3 segments: ramp up, flat acc, ramp down)
+struct ProfilePlan {
+    int count = 0;
+    std::array<SegmentLite, 3> segs; // Fixed size, no heap allocation
+
+    void add(double t, double jerk) {
+        if (t > 1e-9) {
+            segs[count++] = {t, jerk};
+        }
+    }
+};
+
+// ==============================================================================
+// Solver (Templated Brent's Method)
+// ==============================================================================
 class Solver {
 public:
-    static constexpr double EPS_TOL = 1e-8;
-    static constexpr double EPS_CONVERGE = 1e-12;
-    static constexpr int MAX_ITER = 50;
+    static constexpr double TOL = 1e-12;
+    static constexpr int MAX_ITER = 100;
 
-    /**
-     * @brief Finds the root of a monotonic function using a hybrid method (Brent's method variant).
-     *
-     * @tparam Func Template type for the callable (Lambda/Functor).
-     *              Using templates avoids std::function overhead and allows inlining.
-     * @param func The function to solve (returns error value).
-     * @param low Lower bound of the search interval.
-     * @param high Upper bound of the search interval.
-     * @return The input value that results in a function output close to 0.
-     */
+    // Templated to allow inlining of the lambda/functor
     template <typename Func>
-    static double solve_monotonic_brent(Func&& func, double low, double high) {
-        double f_low = func(low);
-        double f_high = func(high);
-
-        // Basic bracket check
-        if (f_low * f_high > 0) {
-            // Root is not bracketed or multiple roots exist. Return closest edge.
-            if (std::abs(f_low) < std::abs(f_high)) return low;
-            else return high;
-        }
-
+    static double solve_brent(Func&& func, double low, double high) {
         double a = low;
         double b = high;
-        double fa = f_low;
-        double fb = f_high;
+        double fa = func(a);
+        double fb = func(b);
 
-        double root_est = b;
+        const double MACH_EPS = std::numeric_limits<double>::epsilon();
+
+        if ((fa > 0 && fb > 0) || (fa < 0 && fb < 0)) {
+            return (std::abs(fa) < std::abs(fb)) ? a : b;
+        }
+
+        if (fa == 0) return a;
+        if (fb == 0) return b;
+
+        double c = a;
+        double fc = fa;
+        double d = b - a;
+        double e = b - a;
+
+        bool mflag = true;
 
         for (int i = 0; i < MAX_ITER; ++i) {
-            // Ensure 'b' is the better guess
-            if (std::abs(fa) < std::abs(fb)) {
-                std::swap(a, b);
-                std::swap(fa, fb);
+            if (std::abs(fc) < std::abs(fb)) {
+                a = b; b = c; c = a;
+                fa = fb; fb = fc; fc = fa;
             }
 
-            // Convergence check
-            if (std::abs(fb - fa) < EPS_CONVERGE) {
-                root_est = b;
-                break;
+            double tol1 = 2.0 * MACH_EPS * std::abs(b) + 0.5 * TOL;
+            double xm = 0.5 * (c - b);
+
+            if (std::abs(xm) <= tol1 || fb == 0) {
+                return b;
             }
 
-            // Interpolation (Secant method)
-            if (std::abs(fa - fb) > 1e-14) {
-                root_est = b - fb * (b - a) / (fb - fa);
-            } else {
-                root_est = b;
-            }
+            if (std::abs(e) >= tol1 && std::abs(fa) > std::abs(fb)) {
+                double s = fb / fa;
+                double p, q;
 
-            // Bisection safeguards
-            double mid_val = 0.5 * (a + b);
-            bool cond1 = (root_est < mid_val && b < mid_val);
-            bool cond2 = (root_est > mid_val && b > mid_val);
+                if (a == c) {
+                    p = 2.0 * xm * s;
+                    q = 1.0 - s;
+                } else {
+                    q = fa / fc;
+                    double r = fb / fc;
+                    p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0));
+                    q = (q - 1.0) * (r - 1.0) * (s - 1.0);
+                }
 
-            if (cond1 || cond2) {
-                root_est = mid_val;
-            }
+                if (p > 0) q = -q;
+                p = std::abs(p);
 
-            double min_val = (a < b) ? a : b;
-            double max_val = (a > b) ? a : b;
+                double min1 = 3.0 * xm * q - std::abs(tol1 * q);
+                double min2 = std::abs(e * q);
 
-            if (root_est < min_val || root_est > max_val) {
-                root_est = mid_val;
-            }
+                if (2.0 * p < min1) {
+                    if (mflag) {
+                        if (2.0 * p < min2) { e = d; d = p / q; mflag = false; }
+                        else { d = xm; e = d; mflag = true; }
+                    } else {
+                        if (2.0 * p < std::abs(d * q)) { e = d; d = p / q; mflag = false; }
+                        else { d = xm; e = d; mflag = true; }
+                    }
+                } else { d = xm; e = d; mflag = true; }
+            } else { d = xm; e = d; mflag = true; }
 
-            double f_root = func(root_est);
+            a = b; fa = fb;
 
-            if (std::abs(f_root) < EPS_TOL || std::abs(b - a) < EPS_TOL) {
-                return root_est;
-            }
+            if (std::abs(d) > tol1) b += d;
+            else b += std::copysign(tol1, xm);
 
-            // Update brackets
-            if (fa * f_root < 0) {
-                b = root_est;
-                fb = f_root;
-            } else {
-                a = root_est;
-                fa = f_root;
+            fb = func(b);
+
+            if ((fb > 0 && fc > 0) || (fb < 0 && fc < 0)) {
+                c = a; fc = fa;
+                d = e = b - a;
+                mflag = true;
             }
         }
-        return root_est;
+        return b;
     }
 };
 
-// ==========================================
-// 3. Planner Class (S-Curve / 7-Segment)
-// ==========================================
-
+// ==============================================================================
+// S7RTT Class
+// ==============================================================================
 class S7RTT {
-public:
-    static constexpr double EPS_TIME = 1e-9;
-    static constexpr double EPS_VAL = 1e-6;
-    static constexpr double EPS_DIST = 1e-5;
-
-    S7RTT() {}
-
-    /**
-     * @brief Inline helper to perform kinematic integration for a single step.
-     *        Update p, v, a based on jerk j and time t.
-     */
-    inline static void step_physics(double j, double t, double& p, double& v, double& a) {
-        double t2 = t * t;
-        double t3 = t2 * t;
-        p += v * t + 0.5 * a * t2 + (1.0 / 6.0) * j * t3;
-        v += a * t + 0.5 * j * t2;
-        a += j * t;
-    }
-
-    /**
-     * @brief Forward integrates a list of segments from a start state to find the end state.
-     */
-    MotionState integrate_path(const MotionState& start_state, const std::vector<Segment>& segments) const {
-        MotionState curr = start_state;
-        for (const auto& seg : segments) {
-            double t = seg.duration;
-            double j = seg.jerk;
-            double t2 = t * t;
-            double t3 = t2 * t;
-
-            curr.p += curr.v * t + 0.5 * curr.a * t2 + (1.0 / 6.0) * j * t3;
-            curr.v += curr.a * t + 0.5 * j * t2;
-            curr.a += j * t;
-            curr.j = j;
-        }
-        return curr;
-    }
-
-    /**
-     * @brief Main planning function.
-     *
-     * @param start_state Current P, V, A.
-     * @param target_p Target Position.
-     * @param target_v Target Velocity (usually 0).
-     * @param v_max Maximum Velocity limit.
-     * @param a_max Maximum Acceleration limit.
-     * @param j_max Maximum Jerk limit.
-     * @return std::vector<Segment> Sequence of jerk segments to execute.
-     */
-    std::vector<Segment> plan(const MotionState& start_state, double target_p, double target_v, double v_max, double a_max, double j_max) {
-        if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
-
-        std::vector<Segment> pre_segments;
-        pre_segments.reserve(2); // Reserve for potential safety deceleration segments
-
-        MotionState current_state = start_state;
-
-        // 1. Initial State Sanitization
-        // If current acceleration exceeds limits, generate a segment to bring it back within bounds.
-        if (current_state.a > a_max + EPS_VAL) {
-            double t_recover = (current_state.a - a_max) / j_max;
-            Segment seg(-j_max, t_recover);
-            pre_segments.push_back(seg);
-            step_physics(-j_max, t_recover, current_state.p, current_state.v, current_state.a);
-            current_state.a = a_max; // Clamp strictly
-        }
-        else if (current_state.a < -a_max - EPS_VAL) {
-            double t_recover = (-a_max - current_state.a) / j_max;
-            Segment seg(j_max, t_recover);
-            pre_segments.push_back(seg);
-            step_physics(j_max, t_recover, current_state.p, current_state.v, current_state.a);
-            current_state.a = -a_max; // Clamp strictly
-        }
-
-        double dist_req = target_p - current_state.p;
-
-        // 2. Compute Physical Boundaries (Full Calculation)
-        // Calculate the distance traveled if we accelerate to +V_max and -V_max immediately.
-        double d_upper;
-        std::vector<Segment> acc_up, dec_up;
-        compute_trajectory_full(current_state, v_max, target_v, a_max, j_max, d_upper, acc_up, dec_up);
-
-        double d_lower;
-        std::vector<Segment> acc_lo, dec_lo;
-        compute_trajectory_full(current_state, -v_max, target_v, a_max, j_max, d_lower, acc_lo, dec_lo);
-
-        std::vector<Segment> plan_segments;
-        plan_segments.reserve(7); // S-Curve typically has max 7 segments
-
-        // 3. Three-Branch Decision Logic
-        if (dist_req > d_upper + EPS_DIST) {
-            // Case 1: Positive Saturation (Cruising at +V_max)
-            double gap = dist_req - d_upper;
-            double t_cruise = gap / v_max;
-
-            plan_segments.insert(plan_segments.end(), acc_up.begin(), acc_up.end());
-            if (t_cruise > EPS_TIME) plan_segments.emplace_back(0.0, t_cruise);
-            plan_segments.insert(plan_segments.end(), dec_up.begin(), dec_up.end());
-        }
-        else if (dist_req < d_lower - EPS_DIST) {
-            // Case 2: Negative Saturation (Cruising at -V_max)
-            double gap = dist_req - d_lower;
-            double t_cruise = gap / (-v_max);
-
-            plan_segments.insert(plan_segments.end(), acc_lo.begin(), acc_lo.end());
-            if (t_cruise > EPS_TIME) plan_segments.emplace_back(0.0, t_cruise);
-            plan_segments.insert(plan_segments.end(), dec_lo.begin(), dec_lo.end());
-        }
-        else {
-            // Case 3: Peak Search (Performance Bottleneck)
-            // The target is reachable without hitting V_max cruise, but we need to find the specific Peak Velocity.
-
-            // Lambda for the solver: Returns (Calculated_Distance - Required_Distance)
-            auto get_error = [&](double v_p) -> double {
-                // FAST PATH: Only calculate scalar distance, no vector allocation
-                double d = calc_trajectory_dist_only(current_state, v_p, target_v, a_max, j_max);
-                return d - dist_req;
-            };
-
-            double max_abs_v = std::max({ v_max, std::abs(current_state.v), std::abs(target_v) }) * 2.0;
-
-            // Solve for the exact peak velocity
-            double best_v = Solver::solve_monotonic_brent(get_error, -max_abs_v, max_abs_v);
-
-            // Generate actual segments using the found velocity (SLOW PATH)
-            double d_final;
-            std::vector<Segment> acc_fin, dec_fin;
-            compute_trajectory_full(current_state, best_v, target_v, a_max, j_max, d_final, acc_fin, dec_fin);
-
-            plan_segments.insert(plan_segments.end(), acc_fin.begin(), acc_fin.end());
-            plan_segments.insert(plan_segments.end(), dec_fin.begin(), dec_fin.end());
-        }
-
-        // Merge any safety recovery segments from the start
-        pre_segments.insert(pre_segments.end(), plan_segments.begin(), plan_segments.end());
-        return pre_segments;
-    }
-
 private:
-    // ==========================================================
-    // FAST PATH: Scalar calculations only, no heap allocation.
-    // Used repeatedly inside the Solver loop.
-    // ==========================================================
+    static constexpr double EPS_TIME = 1e-9;
+    static constexpr double EPS_VAL  = 1e-6;
+    static constexpr double EPS_DIST = 1e-5;
+    static constexpr double ONE_SIXTH = 1.0 / 6.0;
 
-    /**
-     * @brief Calculates the distance traveled for a single velocity change profile (e.g., Start -> Peak).
-     *
-     * @return Accumulated distance.
-     */
-    double calc_profile_dist_only(double v_start, double a_start, double v_target,
-                                  double a_max, double j_max,
-                                  double& v_end_out, double& a_end_out)
-    {
-        // 1. Clamp Initial Acceleration
-        double acc_clamped = a_start;
-        if (acc_clamped > a_max) acc_clamped = a_max;
-        else if (acc_clamped < -a_max) acc_clamped = -a_max;
+    // Helper to integrate state forward without creating objects
+    static void _integrate_inplace(double& p, double& v, double& a, double dt, double j) {
+        double dt2 = dt * dt;
+        double dt3 = dt2 * dt;
+        p += v * dt + 0.5 * a * dt2 + ONE_SIXTH * j * dt3;
+        v += a * dt + 0.5 * j * dt2;
+        a += j * dt;
+    }
 
-        // 2. Calculate Base Velocity (velocity reached if we reduce accel to 0 immediately)
+    // Calculates the shape parameters (times and jerks) without allocating vectors.
+    static ProfilePlan _compute_profile_params(double v_start, double a_start, double v_target, double a_max, double j_max) {
+        ProfilePlan plan;
+
+        // 1. Clamp start acceleration
+        double acc_clamped = std::clamp(a_start, -a_max, a_max);
+
+        // 2. Calc velocity reached if we immediately reduce accel to zero
         double t_to_zero = std::abs(acc_clamped) / j_max;
         double j_to_zero = (acc_clamped > 0) ? -j_max : j_max;
         double dv_base = acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
         double v_base = v_start + dv_base;
 
-        // Determine Direction
+        // 3. Determine direction
         double direction = (v_target < v_base) ? -1.0 : 1.0;
+
         double j_up = (direction > 0) ? j_max : -j_max;
         double j_down = (direction > 0) ? -j_max : j_max;
 
-        // 3. Solve Physics Constraints
+        // 4. Constraints
         double v_req_total = v_target - v_start;
         double a_limit = a_max * direction;
 
-        // Time to ramp acceleration from current to limit, and limit to zero
         double t1_max = (a_limit - acc_clamped) / j_up;
         double t3_max = std::abs(a_limit) / j_max;
 
-        // Velocity change provided by a full trapezoidal acceleration profile
+        // Safety for precision issues
+        if (t1_max < 0) t1_max = 0;
+
         double dv_trapezoid = (acc_clamped * t1_max + 0.5 * j_up * t1_max * t1_max) +
                               (a_limit * t3_max + 0.5 * j_down * t3_max * t3_max);
 
-        // Check if we hit the acceleration ceiling (Trapezoidal vs Triangular profile)
         bool needs_flat = (direction > 0) ? (v_req_total > dv_trapezoid) : (v_req_total < dv_trapezoid);
 
-        // Accumulators
-        double dist_accum = 0.0;
-        double v_curr = v_start;
-        double a_curr = acc_clamped;
-        // Note: We ignore the tiny displacement of clamping a_start here, assuming it's handled externally
-        // or negligible for the root finder's purpose.
-
-        // Lambda to step scalar physics
-        auto fast_step = [&](double j, double t) {
-            if (t <= EPS_TIME) return;
-            double t2 = t * t;
-            dist_accum += v_curr * t + 0.5 * a_curr * t2 + (1.0 / 6.0) * j * t2 * t;
-            v_curr += a_curr * t + 0.5 * j * t2;
-            a_curr += j * t;
-        };
-
         if (needs_flat) {
-            // Case: Acceleration saturates (Trapezoidal Accel Profile)
+            // Trapezoidal
             double v_missing = v_req_total - dv_trapezoid;
             double t_flat = v_missing / a_limit;
+            if (t_flat < 0) t_flat = 0;
 
-            fast_step(j_up, t1_max);    // Ramp up accel
-            fast_step(0.0, t_flat);     // Constant accel
-            fast_step(j_down, t3_max);  // Ramp down accel
+            plan.add(t1_max, j_up);
+            plan.add(t_flat, 0.0);
+            plan.add(t3_max, j_down);
         } else {
-            // Case: Acceleration peaks before saturation (Triangular Accel Profile)
-            // Solve: v_req = Integral of accel (area under triangle)
+            // Triangular
             double term = v_req_total * j_up + 0.5 * acc_clamped * acc_clamped;
-            if (term < 0) term = 0.0;
+            if (term < 0) term = 0.0; // Numerical noise safety
             double a_peak_mag = std::sqrt(term);
             double a_peak = (direction > 0) ? a_peak_mag : -a_peak_mag;
 
             double t1 = (a_peak - acc_clamped) / j_up;
             double t3 = (0.0 - a_peak) / j_down;
 
-            fast_step(j_up, t1);
-            fast_step(j_down, t3);
-        }
+            if (t1 < 0) t1 = 0; // Safety
 
-        v_end_out = v_curr;
-        a_end_out = a_curr;
-        return dist_accum;
+            plan.add(t1, j_up);
+            plan.add(t3, j_down);
+        }
+        return plan;
     }
 
-    /**
-     * @brief Calculates total distance for a full trajectory (Start -> V_peak -> Target) without generating segments.
-     */
-    double calc_trajectory_dist_only(const MotionState& start_state, double v_peak, double target_v,
-                                     double a_max, double j_max)
-    {
-        double v_mid, a_mid;
-        // Phase 1: Accelerate/Decelerate to Peak Velocity
-        double d1 = calc_profile_dist_only(start_state.v, start_state.a, v_peak, a_max, j_max, v_mid, a_mid);
+    // Returns total distance covered by a plan phase, updates final v and a
+    static double _integrate_plan_dist(double& v, double& a, const ProfilePlan& plan) {
+        double dist = 0.0;
+        // Local integrate to get distance
+        for (int i = 0; i < plan.count; ++i) {
+            double t = plan.segs[i].dt;
+            double j = plan.segs[i].j;
+            double dt2 = t * t;
 
-        // Phase 2: Accelerate/Decelerate from Peak Velocity to Target Velocity
-        // Note: Use the end state of Phase 1 as start of Phase 2
-        double v_end, a_end;
-        double d2 = calc_profile_dist_only(v_mid, a_mid, target_v, a_max, j_max, v_end, a_end);
+            dist += v * t + 0.5 * a * dt2 + ONE_SIXTH * j * dt2 * t;
+            v += a * t + 0.5 * j * dt2;
+            a += j * t;
+        }
+        return dist;
+    }
+
+    // Calculates total distance for specific v_peak without ANY heap allocation
+    static double _calc_distance_for_v_peak(const MotionState& current_state, double v_peak, double target_v, double a_max, double j_max) {
+        double v_curr = current_state.v;
+        double a_curr = current_state.a;
+
+        // Phase 1: Start -> V_Peak
+        ProfilePlan acc_plan = _compute_profile_params(v_curr, a_curr, v_peak, a_max, j_max);
+        double d1 = _integrate_plan_dist(v_curr, a_curr, acc_plan);
+
+        // Phase 2: V_Peak -> Target
+        ProfilePlan dec_plan = _compute_profile_params(v_curr, a_curr, target_v, a_max, j_max);
+        double d2 = _integrate_plan_dist(v_curr, a_curr, dec_plan);
 
         return d1 + d2;
     }
 
-
-    // ==========================================================
-    // SLOW PATH: Generates actual Segment objects.
-    // Called only once per plan when the optimal solution is found.
-    // ==========================================================
-
-    std::vector<Segment> _build_profile_segs(double v_start, double a_start, double v_target, double a_max, double j_max) {
-        std::vector<Segment> segments;
-        segments.reserve(3);
-
-        double acc_clamped = a_start;
-        if (acc_clamped > a_max) acc_clamped = a_max;
-        else if (acc_clamped < -a_max) acc_clamped = -a_max;
-
-        // Calculate theoretical velocity if we drop accel to zero now
-        double t_to_zero = std::abs(acc_clamped) / j_max;
-        double j_to_zero = (acc_clamped > 0) ? -j_max : j_max;
-        double dv_base = acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
-        double v_base = v_start + dv_base;
-
-        double direction = (v_target < v_base) ? -1.0 : 1.0;
-        double j_up = (direction > 0) ? j_max : -j_max;
-        double j_down = (direction > 0) ? -j_max : j_max;
-
-        double v_req_total = v_target - v_start;
-        double a_limit = a_max * direction;
-
-        double t1_max = (a_limit - acc_clamped) / j_up;
-        double t3_max = std::abs(a_limit) / j_max;
-
-        double dv_trapezoid = (acc_clamped * t1_max + 0.5 * j_up * t1_max * t1_max) +
-                              (a_limit * t3_max + 0.5 * j_down * t3_max * t3_max);
-
-        bool needs_flat = (direction > 0) ? (v_req_total > dv_trapezoid) : (v_req_total < dv_trapezoid);
-
-        if (needs_flat) {
-            double v_missing = v_req_total - dv_trapezoid;
-            double t_flat = v_missing / a_limit;
-            if (t1_max > EPS_TIME) segments.emplace_back(j_up, t1_max);
-            if (t_flat > EPS_TIME) segments.emplace_back(0.0, t_flat);
-            if (t3_max > EPS_TIME) segments.emplace_back(j_down, t3_max);
-        } else {
-            double term = v_req_total * j_up + 0.5 * acc_clamped * acc_clamped;
-            if (term < 0) term = 0.0;
-            double a_peak_mag = std::sqrt(term);
-            double a_peak = (direction > 0) ? a_peak_mag : -a_peak_mag;
-            double t1 = (a_peak - acc_clamped) / j_up;
-            double t3 = (0.0 - a_peak) / j_down;
-            if (t1 > EPS_TIME) segments.emplace_back(j_up, t1);
-            if (t3 > EPS_TIME) segments.emplace_back(j_down, t3);
+    // Helper to actually construct the vectors only when needed
+    void _append_to_trajectory(std::vector<MotionState>& traj, MotionState& curr, const ProfilePlan& plan) {
+        for (int i = 0; i < plan.count; ++i) {
+            MotionState s = curr;
+            s.dt = plan.segs[i].dt;
+            s.j = plan.segs[i].j;
+            traj.push_back(s);
+            // Update current state for next node
+            curr = _integrate_state(curr, s.dt, s.j);
         }
-        return segments;
     }
 
-    void compute_trajectory_full(const MotionState& start_state, double v_peak, double target_v, double a_max, double j_max,
-                                 double& out_dist, std::vector<Segment>& out_acc_segs, std::vector<Segment>& out_dec_segs) {
+    MotionState _integrate_state(const MotionState& state, double dt, double j) {
+        double p = state.p;
+        double v = state.v;
+        double a = state.a;
+        _integrate_inplace(p, v, a, dt, j);
+        return MotionState(0.0, p, v, a, 0.0);
+    }
 
-        // Build acceleration phase
-        out_acc_segs = _build_profile_segs(start_state.v, start_state.a, v_peak, a_max, j_max);
+public:
+    S7RTT() {}
 
-        // Integrate to find state at the peak
-        MotionState state_mid = integrate_path(start_state, out_acc_segs);
+    std::vector<MotionState> plan(const MotionState& start_state, double target_p, double target_v, double v_max, double a_max, double j_max) {
+        if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
 
-        // Build deceleration phase
-        out_dec_segs = _build_profile_segs(state_mid.v, state_mid.a, target_v, a_max, j_max);
+        // Pre-reserve to avoid re-allocations. 7 is typical max segments (recover + acc(3) + cruise + dec(3))
+        std::vector<MotionState> final_trajectory;
+        final_trajectory.reserve(16);
 
-        // Calculate total distance by summing segments (Double verification)
-        double d1 = 0;
-        double v = start_state.v, a = start_state.a;
-        for(auto& s : out_acc_segs) {
-            double t = s.duration; double j = s.jerk;
-            d1 += v*t + 0.5*a*t*t + (1.0/6.0)*j*t*t*t;
-            v += a*t + 0.5*j*t*t; a += j*t;
+        MotionState current_state = start_state;
+
+        // 2. Acceleration Recovery
+        double t_recover = 0.0;
+        double j_recover = 0.0;
+        bool recovering = false;
+
+        if (current_state.a > a_max + EPS_VAL) {
+            t_recover = (current_state.a - a_max) / j_max;
+            j_recover = -j_max;
+            recovering = true;
+        } else if (current_state.a < -a_max - EPS_VAL) {
+            t_recover = (-a_max - current_state.a) / j_max;
+            j_recover = j_max;
+            recovering = true;
         }
 
-        double d2 = 0;
-        v = state_mid.v; a = state_mid.a;
-        for(auto& s : out_dec_segs) {
-            double t = s.duration; double j = s.jerk;
-            d2 += v*t + 0.5*a*t*t + (1.0/6.0)*j*t*t*t;
-            v += a*t + 0.5*j*t*t; a += j*t;
+        if (recovering) {
+            MotionState rec_state = current_state;
+            rec_state.dt = t_recover;
+            rec_state.j = j_recover;
+            final_trajectory.push_back(rec_state);
+            current_state = _integrate_state(current_state, t_recover, j_recover);
+            // Force snap to limit to remove float noise
+            current_state.a = (j_recover < 0) ? a_max : -a_max;
         }
 
-        out_dist = d1 + d2;
+        double dist_req = target_p - current_state.p;
+
+        // 3. Inertial Reference (Velocity reached if accel goes to 0)
+        double t_to_zero = std::abs(current_state.a) / j_max;
+        double j_to_zero = (current_state.a > 0) ? -j_max : j_max;
+        double v_inertial = current_state.v + current_state.a * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
+
+        // 4. Direct Profile Check (Can we just go straight to target V?)
+        double d_direct = _calc_distance_for_v_peak(current_state, current_state.v, target_v, a_max, j_max);
+
+        // Variables for result construction
+        std::vector<ProfilePlan> plans_to_stitch;
+        double cruise_time = 0.0;
+
+        if (std::abs(d_direct - dist_req) <= EPS_DIST) {
+            // Case A: Go directly to target velocity
+            ProfilePlan p = _compute_profile_params(current_state.v, current_state.a, target_v, a_max, j_max);
+            plans_to_stitch.push_back(p);
+        } else {
+            // 5. Boundary Calc
+            double dist_upper = _calc_distance_for_v_peak(current_state, v_max, target_v, a_max, j_max);
+            double dist_lower = _calc_distance_for_v_peak(current_state, -v_max, target_v, a_max, j_max);
+
+            if (dist_req > dist_upper + EPS_DIST) {
+                // Case B: Cruise at +V_max
+                double gap = dist_req - dist_upper;
+                cruise_time = gap / v_max;
+                plans_to_stitch.push_back(_compute_profile_params(current_state.v, current_state.a, v_max, a_max, j_max));
+                plans_to_stitch.push_back(_compute_profile_params(v_max, 0.0, target_v, a_max, j_max));
+            } else if (dist_req < dist_lower - EPS_DIST) {
+                // Case C: Cruise at -V_max
+                double gap = dist_req - dist_lower;
+                cruise_time = gap / -v_max; // gap is negative, -v_max is positive divisor result
+                plans_to_stitch.push_back(_compute_profile_params(current_state.v, current_state.a, -v_max, a_max, j_max));
+                plans_to_stitch.push_back(_compute_profile_params(-v_max, 0.0, target_v, a_max, j_max));
+            } else {
+                // Case D: Within bounds, use Brent's Solver
+                double dist_inertial = _calc_distance_for_v_peak(current_state, v_inertial, target_v, a_max, j_max);
+
+                double s_low, s_high;
+                double limit_safe = std::max({v_max, std::abs(current_state.v), std::abs(target_v)}) * 1.5 + 10.0;
+                double overlap_v = EPS_VAL * 10.0;
+
+                if (dist_req > dist_inertial) {
+                    s_low = v_inertial - overlap_v;
+                    s_high = limit_safe;
+                } else {
+                    s_high = v_inertial + overlap_v;
+                    s_low = -limit_safe;
+                }
+
+                if (s_low >= s_high) s_low = s_high - EPS_VAL;
+
+                // Capture params by copy to avoid reference issues, lightweight enough
+                auto cost_func = [current_state, target_v, a_max, j_max, dist_req](double v_p) -> double {
+                    return _calc_distance_for_v_peak(current_state, v_p, target_v, a_max, j_max) - dist_req;
+                };
+
+                double best_v = Solver::solve_brent(cost_func, s_low, s_high);
+
+                // Fallback check (sometimes roots are outside predicted bracket if j makes weird shapes)
+                bool hit_low = std::abs(best_v - s_low) < EPS_VAL;
+                bool hit_high = std::abs(best_v - s_high) < EPS_VAL;
+
+                if (hit_low || hit_high) {
+                    best_v = Solver::solve_brent(cost_func, -limit_safe, limit_safe);
+                }
+
+                // Construct final shape based on best_v
+                double v_mid_final = best_v;
+                double a_mid_final = 0.0; // Approximation, need precise state
+
+                // Recalculate parameters for the best_v
+                ProfilePlan p1 = _compute_profile_params(current_state.v, current_state.a, v_mid_final, a_max, j_max);
+
+                // We need the state at the peak to calculate the second phase precisely
+                double v_temp = current_state.v;
+                double a_temp = current_state.a;
+                _integrate_plan_dist(v_temp, a_temp, p1); // updates v_temp, a_temp
+
+                ProfilePlan p2 = _compute_profile_params(v_temp, a_temp, target_v, a_max, j_max);
+
+                plans_to_stitch.push_back(p1);
+                plans_to_stitch.push_back(p2);
+            }
+        }
+
+        // 6. Stitching
+        // First profile (Accel)
+        if (!plans_to_stitch.empty()) {
+            _append_to_trajectory(final_trajectory, current_state, plans_to_stitch[0]);
+        }
+
+        // Cruise
+        if (cruise_time > EPS_TIME) {
+            MotionState cruise = current_state;
+            cruise.dt = cruise_time;
+            cruise.j = 0.0;
+            // Clean up small acceleration noise
+            cruise.a = 0.0;
+            final_trajectory.push_back(cruise);
+            current_state = _integrate_state(current_state, cruise_time, 0.0);
+        }
+
+        // Second profile (Decel) - if exists
+        if (plans_to_stitch.size() > 1) {
+            _append_to_trajectory(final_trajectory, current_state, plans_to_stitch[1]);
+        }
+
+        return final_trajectory;
+    }
+
+    // Velocity planner (simpler, no solver needed)
+    std::vector<MotionState> plan_velocity(const MotionState& start_state, double target_v, double v_max, double a_max, double j_max) {
+        if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
+
+        std::vector<MotionState> final_trajectory;
+        final_trajectory.reserve(8);
+
+        double safe_target_v = std::clamp(target_v, -v_max, v_max);
+        MotionState current_state = start_state;
+
+        // 1. Recovery
+        if (current_state.a > a_max + EPS_VAL) {
+            double t_recover = (current_state.a - a_max) / j_max;
+            MotionState rec_state = current_state;
+            rec_state.dt = t_recover;
+            rec_state.j = -j_max;
+            final_trajectory.push_back(rec_state);
+            current_state = _integrate_state(current_state, t_recover, -j_max);
+            current_state.a = a_max;
+        } else if (current_state.a < -a_max - EPS_VAL) {
+            double t_recover = (-a_max - current_state.a) / j_max;
+            MotionState rec_state = current_state;
+            rec_state.dt = t_recover;
+            rec_state.j = j_max;
+            final_trajectory.push_back(rec_state);
+            current_state = _integrate_state(current_state, t_recover, j_max);
+            current_state.a = -a_max;
+        }
+
+        // 2. Build Profile
+        ProfilePlan plan = _compute_profile_params(current_state.v, current_state.a, safe_target_v, a_max, j_max);
+        _append_to_trajectory(final_trajectory, current_state, plan);
+
+        return final_trajectory;
+    }
+
+    MotionState at_time(const std::vector<MotionState>& trajectory, double dt) {
+        if (trajectory.empty()) return MotionState();
+
+        double t_remaining = dt;
+
+        // Optimized loop: avoid recalculating constants if possible, but logic is simple enough
+        for (const auto& node : trajectory) {
+            if (t_remaining <= node.dt + 1e-12) {
+                // Ensure negative time is handled as 0
+                double t = (t_remaining < 0) ? 0 : t_remaining;
+                double j = node.j;
+                double dt2 = t * t;
+
+                double p = node.p + node.v * t + 0.5 * node.a * dt2 + ONE_SIXTH * j * dt2 * t;
+                double v = node.v + node.a * t + 0.5 * j * dt2;
+                double a = node.a + j * t;
+                return MotionState(0.0, p, v, a, j);
+            } else {
+                t_remaining -= node.dt;
+            }
+        }
+
+        // Extrapolate
+        const MotionState& last_node = trajectory.back();
+        double t = last_node.dt;
+        double j = last_node.j;
+        double dt2 = t * t;
+
+        double p_end = last_node.p + last_node.v * t + 0.5 * last_node.a * dt2 + ONE_SIXTH * j * dt2 * t;
+        double v_end = last_node.v + last_node.a * t + 0.5 * j * dt2;
+
+        double p_final = p_end + v_end * t_remaining;
+        return MotionState(0.0, p_final, v_end, 0.0, 0.0);
     }
 };
 
