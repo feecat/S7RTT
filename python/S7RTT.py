@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.2
+# Version:      V1.3
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -24,79 +24,138 @@ import math
 
 class Solver:
     """
-    A numerical solver utility using Brent's Method.
-    Primarily used to find the exact peak velocity required to align the
-    trajectory's total distance with the target position.
+    Optimized Numerical Solver using Brent's Method.
     """
     
-    EPS_TOL = 1e-8       # Tolerance for function value convergence
-    EPS_CONVERGE = 1e-12 # Tolerance for interval convergence
-    MAX_ITER = 50        # Maximum iterations to prevent infinite loops
+    # Use system machine epsilon (typically around 2.22e-16) for better accuracy
+    EPS = 1e-16
+    TOL = 1e-12
+    MAX_ITER = 100
 
     @staticmethod
-    def solve_monotonic_brent(func, low, high):
+    def solve_brent(func, low, high):
         """
-        Finds the root of a monotonic function 'func' within the interval [low, high].
+        Finds the root of 'func' in [low, high] using Brent's method.
+        
+        Returns:
+            The root x (or the closest approximation if not converged).
         """
-        f_low = func(low)
-        f_high = func(high)
+        a = low
+        b = high
+        fa = func(a)
+        fb = func(b)
+
+        # Check if the root is bracketed.
+        # If fa and fb have the same sign, we cannot guarantee a root exists.
+        # In this case, return the endpoint closer to zero.
+        if (fa > 0 and fb > 0) or (fa < 0 and fb < 0):
+            return a if abs(fa) < abs(fb) else b
+
+        if fa == 0: return a
+        if fb == 0: return b
+
+        # Initialize variables
+        # c is the opposite end of the interval from b
+        c = a
+        fc = fa
+        d = e = b - a
         
-        # If the root is bracketed, return the side closer to zero
-        if f_low * f_high > 0:
-            if abs(f_low) < abs(f_high): return low
-            else: return high
-            
-        a = low; b = high
-        fa = f_low; fb = f_high
+        # mflag indicates if bisection is forced
+        mflag = True 
         
-        root_est = b
-        
+        tol_const = Solver.TOL
+        mach_eps = Solver.EPS
+
         for _ in range(Solver.MAX_ITER):
-            # Ensure 'b' is the better estimate (closer to 0)
-            if abs(fa) < abs(fb):
-                a, b = b, a
-                fa, fb = fb, fa
+            # Ensure |f(b)| <= |f(c)| so that b is always the best guess
+            if abs(fc) < abs(fb):
+                a, b, c = b, c, b
+                fa, fb, fc = fb, fc, fb
             
-            # Check for convergence
-            if abs(fb - fa) < Solver.EPS_CONVERGE:
-                root_est = b
-                break
-            else:
-                # Try Inverse Quadratic Interpolation
-                if abs(fa - fb) > 1e-14:
-                    root_est = b - fb * (b - a) / (fb - fa)
+            # Calculate tolerance
+            # tol1 combines relative machine precision and absolute tolerance
+            tol1 = 2.0 * mach_eps * abs(b) + 0.5 * tol_const
+            xm = 0.5 * (c - b)
+            
+            # Convergence test: interval is small enough or exact root found
+            if abs(xm) <= tol1 or fb == 0:
+                return b
+            
+            # Attempt interpolation if:
+            # 1. Previous step size |e| was larger than tolerance
+            # 2. Function value at 'a' is significantly different from 'b'
+            if abs(e) >= tol1 and abs(fa) > abs(fb):
+                s = fb / fa
+                
+                if a == c:
+                    # Linear interpolation (Secant Method)
+                    p = 2.0 * xm * s
+                    q = 1.0 - s
                 else:
-                    root_est = b
-            
-            mid_val = 0.5 * (a + b)
-            
-            # Conditions to fall back to Bisection method
-            cond1 = (root_est < mid_val and b < mid_val)
-            cond2 = (root_est > mid_val and b > mid_val)
-            
-            if cond1 or cond2:
-                root_est = mid_val
-            
-            # Ensure estimate stays within bounds
-            min_val = a if a < b else b
-            max_val = a if a > b else b
-            
-            if root_est < min_val or root_est > max_val:
-                root_est = mid_val
+                    # Inverse Quadratic Interpolation (IQI)
+                    q = fa / fc
+                    r = fb / fc
+                    p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0))
+                    q = (q - 1.0) * (r - 1.0) * (s - 1.0)
                 
-            f_root = func(root_est)
-            
-            # Check if result is within tolerance
-            if abs(f_root) < Solver.EPS_TOL or abs(b - a) < Solver.EPS_TOL:
-                return root_est
-            
-            # Update the brackets based on the sign
-            if fa * f_root < 0:
-                b = root_est; fb = f_root
+                # Adjust signs of p and q ensuring p > 0
+                if p > 0:
+                    q = -q
+                p = abs(p)
+                
+                # Validate if interpolation result is acceptable:
+                # 1. Must fall strictly within (b, b + 3*xm)
+                # 2. Must converge faster than bisection (checked against min2)
+                min1 = 3.0 * xm * q - abs(tol1 * q)
+                min2 = abs(e * q)
+                
+                if 2.0 * p < min1:
+                    # Check convergence speed relative to previous step
+                    if mflag:
+                        # Previous step was bisection; require significant reduction
+                        if 2.0 * p < min2:
+                            e = d
+                            d = p / q
+                            mflag = False
+                        else:
+                            d = xm; e = d; mflag = True
+                    else:
+                        # Previous step was interpolation; check against d form step before last
+                        if 2.0 * p < abs(d * q):
+                            e = d
+                            d = p / q
+                            mflag = False
+                        else:
+                            d = xm; e = d; mflag = True
+                else:
+                    # Interpolation failed (out of bounds), fallback to bisection
+                    d = xm; e = d; mflag = True
             else:
-                a = root_est; fa = f_root
+                # Step too small or function too flat -> force bisection
+                d = xm; e = d; mflag = True
+
+            # Apply the computed step
+            a = b; fa = fb  # Store previous b as a (for the next bracket)
+            
+            if abs(d) > tol1:
+                b += d
+            else:
+                # If step is too small, force a tiny step to avoid stagnation
+                b += math.copysign(tol1, xm)
                 
-        return root_est
+            fb = func(b)
+            
+            # Maintain bracket [b, c] such that f(b) and f(c) have opposite signs.
+            # If f(b) and f(c) share the same sign, the root is no longer between them.
+            # Reset c to a (the previous b).
+            if (fb > 0 and fc > 0) or (fb < 0 and fc < 0):
+                c = a
+                fc = fa
+                d = e = b - a # Reset step size
+                mflag = True
+
+        # If max iterations reached, return the best guess b
+        return b
 
 
 class MotionState:
@@ -358,14 +417,14 @@ class S7RTT:
                     
                     if s_low >= s_high: s_low = s_high - S7RTT.EPS_VAL
 
-                    best_v = Solver.solve_monotonic_brent(get_error, s_low, s_high)
+                    best_v = Solver.solve_brent(get_error, s_low, s_high)
                     
                     # Strategy C: Fallback Mechanism
                     hit_low = abs(best_v - s_low) < S7RTT.EPS_VAL
                     hit_high = abs(best_v - s_high) < S7RTT.EPS_VAL
                     
                     if hit_low or hit_high:
-                        best_v = Solver.solve_monotonic_brent(get_error, -limit_safe, limit_safe)
+                        best_v = Solver.solve_brent(get_error, -limit_safe, limit_safe)
 
                     # Post-Process: Micro-noise filtering
                     # If result implies v_inertial, use the cached shapes to save calculation
