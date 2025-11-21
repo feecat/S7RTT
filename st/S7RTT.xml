@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-11-21T16:41:00.8318731" />
-  <contentHeader name="S7RTT.project" modificationDateTime="2025-11-21T16:36:04.6954486">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-11-22T01:05:49.3460146" />
+  <contentHeader name="Untitled6.project" modificationDateTime="2025-11-22T01:03:42.2845912">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -21,6 +21,32 @@
   </contentHeader>
   <types>
     <dataTypes>
+      <dataType name="ST_MotionLimits">
+        <baseType>
+          <struct>
+            <variable name="fVelMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fAccMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fJerkMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>d3412a66-ab42-4656-b5ac-8ceac29439de</ObjectId>
+          </data>
+        </addData>
+      </dataType>
       <dataType name="ST_MotionState">
         <baseType>
           <struct>
@@ -83,436 +109,12 @@
         </baseType>
         <addData>
           <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>44bbd9d0-65b5-479a-84a2-0d2f5f6b8556</ObjectId>
-          </data>
-        </addData>
-      </dataType>
-      <dataType name="ST_MotionLimits">
-        <baseType>
-          <struct>
-            <variable name="fVelMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="fAccMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="fJerkMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </struct>
-        </baseType>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>13e872a0-40d2-46c3-b98e-f242a002d839</ObjectId>
+            <ObjectId>093654ef-94b9-49f9-9c6c-4acf457e8661</ObjectId>
           </data>
         </addData>
       </dataType>
     </dataTypes>
     <pous>
-      <pou name="FC_S7RTT_BuildProfile" pouType="function">
-        <interface>
-          <returnType>
-            <INT />
-          </returnType>
-          <inputVars>
-            <variable name="in_v_start">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="in_a_start">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="in_v_target">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="in_a_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="in_j_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </inputVars>
-          <inOutVars>
-            <variable name="out_time">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-            <variable name="out_jerk">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-          </inOutVars>
-          <localVars>
-            <variable name="acc_clamped">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_to_zero">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_to_zero">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="dv_base">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="v_base">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="direction">
-              <type>
-                <LREAL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> 1.0 or -1.0</xhtml>
-              </documentation>
-            </variable>
-            <variable name="j_up">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_down">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="v_req_total">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_limit">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t1_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t3_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="dv_trap">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="needs_flat">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="v_missing">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_flat">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="term">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_peak_mag">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_peak">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t1">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t3">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="cnt">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="EPS_TIME">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="1E-09" />
-              </initialValue>
-            </variable>
-          </localVars>
-        </interface>
-        <body>
-          <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">cnt := 0;
-
-// 1. Clamp Acceleration
-acc_clamped := in_a_start;
-IF acc_clamped &gt; in_a_max THEN acc_clamped := in_a_max; END_IF;
-IF acc_clamped &lt; -in_a_max THEN acc_clamped := -in_a_max; END_IF;
-
-// 2. Calculate Base Velocity
-t_to_zero := ABS(acc_clamped) / in_j_max;
-IF acc_clamped &gt; 0.0 THEN j_to_zero := -in_j_max; ELSE j_to_zero := in_j_max; END_IF;
-
-dv_base := acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
-v_base := in_v_start + dv_base;
-
-// 3. Determine Direction
-IF in_v_target &lt; v_base THEN
-	direction := -1.0;
-	j_up := -in_j_max;
-	j_down := in_j_max;
-ELSE
-	direction := 1.0;
-	j_up := in_j_max;
-	j_down := -in_j_max;
-END_IF;
-
-v_req_total := in_v_target - in_v_start;
-a_limit := in_a_max * direction;
-
-// Max possible time for ramp up/down
-t1_max := (a_limit - acc_clamped) / j_up;
-t3_max := ABS(a_limit) / in_j_max;
-
-// Trapezoidal check
-dv_trap := (acc_clamped * t1_max + 0.5 * j_up * t1_max * t1_max) +
-		   (a_limit * t3_max + 0.5 * j_down * t3_max * t3_max);
-
-needs_flat := FALSE;
-IF direction &gt; 0.0 THEN
-	IF v_req_total &gt; dv_trap THEN needs_flat := TRUE; END_IF;
-ELSE
-	IF v_req_total &lt; dv_trap THEN needs_flat := TRUE; END_IF;
-END_IF;
-
-IF needs_flat THEN
-	// Trapezoidal
-	v_missing := v_req_total - dv_trap;
-	t_flat := v_missing / a_limit;
-
-	IF t1_max &gt; EPS_TIME THEN
-		cnt := cnt + 1; out_time[cnt] := t1_max; out_jerk[cnt] := j_up;
-	END_IF;
-	IF t_flat &gt; EPS_TIME THEN
-		cnt := cnt + 1; out_time[cnt] := t_flat; out_jerk[cnt] := 0.0;
-	END_IF;
-	IF t3_max &gt; EPS_TIME THEN
-		cnt := cnt + 1; out_time[cnt] := t3_max; out_jerk[cnt] := j_down;
-	END_IF;
-ELSE
-	// Triangular
-	term := v_req_total * j_up + 0.5 * acc_clamped * acc_clamped;
-	IF term &lt; 0.0 THEN term := 0.0; END_IF;
-	
-	a_peak_mag := SQRT(term);
-	IF direction &gt; 0.0 THEN a_peak := a_peak_mag; ELSE a_peak := -a_peak_mag; END_IF;
-
-	t1 := (a_peak - acc_clamped) / j_up;
-	t3 := (0.0 - a_peak) / j_down;
-
-	IF t1 &gt; EPS_TIME THEN
-		cnt := cnt + 1; out_time[cnt] := t1; out_jerk[cnt] := j_up;
-	END_IF;
-	IF t3 &gt; EPS_TIME THEN
-		cnt := cnt + 1; out_time[cnt] := t3; out_jerk[cnt] := j_down;
-	END_IF;
-END_IF;
-
-FC_S7RTT_BuildProfile := cnt;</xhtml>
-          </ST>
-        </body>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>d1640cb3-49be-4591-830b-48d7d66bcbd7</ObjectId>
-          </data>
-        </addData>
-      </pou>
-      <pou name="FC_S7RTT_CalcTrajDist" pouType="function">
-        <interface>
-          <returnType>
-            <LREAL />
-          </returnType>
-          <inputVars>
-            <variable name="v_peak">
-              <type>
-                <LREAL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> The variable solver is controlling </xhtml>
-              </documentation>
-            </variable>
-            <variable name="start_v">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="start_a">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="target_v">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </inputVars>
-          <localVars>
-            <variable name="t_buf">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-            <variable name="j_buf">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-            <variable name="cnt">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="i">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="v_curr">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_curr">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="dist_total">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_seg">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_seg">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </localVars>
-        </interface>
-        <body>
-          <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">dist_total := 0.0;
-v_curr := start_v;
-a_curr := start_a;
-
-// Phase 1: Start -&gt; Peak
-cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, v_peak, a_max, j_max, t_buf, j_buf);
-FOR i := 1 TO cnt DO
-	t_seg := t_buf[i];
-	j_seg := j_buf[i];
-	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
-	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
-	a_curr := a_curr + j_seg * t_seg;
-END_FOR;
-
-// Phase 2: Peak -&gt; Target
-cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, target_v, a_max, j_max, t_buf, j_buf);
-FOR i := 1 TO cnt DO
-	t_seg := t_buf[i];
-	j_seg := j_buf[i];
-	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
-	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
-	a_curr := a_curr + j_seg * t_seg;
-END_FOR;
-
-FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
-          </ST>
-        </body>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>5091fa0c-ab3b-4187-8ed5-58fb9d7b47fd</ObjectId>
-          </data>
-        </addData>
-      </pou>
       <pou name="FB_S7RTT" pouType="functionBlock">
         <interface>
           <inputVars>
@@ -525,9 +127,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <type>
                 <BOOL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> FALSE=Position Plan, TRUE=Velocity Plan </xhtml>
-              </documentation>
             </variable>
             <variable name="StartState">
               <type>
@@ -538,9 +137,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <type>
                 <LREAL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Valid if ModeVelocity=FALSE </xhtml>
-              </documentation>
             </variable>
             <variable name="TargetVel">
               <type>
@@ -595,25 +191,16 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <type>
                 <LREAL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
-              </documentation>
             </variable>
             <variable name="c_vel">
               <type>
                 <LREAL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
-              </documentation>
             </variable>
             <variable name="c_acc">
               <type>
                 <LREAL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
-              </documentation>
             </variable>
             <variable name="dist_req">
               <type>
@@ -624,9 +211,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <type>
                 <INT />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Brent Solver Vars</xhtml>
-              </documentation>
             </variable>
             <variable name="sa">
               <type>
@@ -727,9 +311,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
                   </baseType>
                 </array>
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Buffer Helpers</xhtml>
-              </documentation>
             </variable>
             <variable name="j_shape_buf">
               <type>
@@ -755,14 +336,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <type>
                 <LREAL />
               </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Temp logic vars</xhtml>
-              </documentation>
-            </variable>
-            <variable name="d_direct">
-              <type>
-                <LREAL />
-              </type>
             </variable>
             <variable name="d_upper">
               <type>
@@ -784,7 +357,7 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
                 <LREAL />
               </type>
             </variable>
-            <variable name="j_to_zero">
+            <variable name="j_restore">
               <type>
                 <LREAL />
               </type>
@@ -821,9 +394,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
               <initialValue>
                 <simpleValue value="1E-09" />
               </initialValue>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Constants</xhtml>
-              </documentation>
             </variable>
             <variable name="EPS_VAL">
               <type>
@@ -869,7 +439,29 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
         </interface>
         <body>
           <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">trig_exec := Execute AND NOT prev_exec;
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">// ==============================================================================
+// File Name:    S7RTT.st
+// Author:       feecat
+// Version:      V1.5
+// Description:  Simple 7seg Real-Time Trajectory Generator
+// Website:      https://github.com/feecat/S7RTT
+// License:      Apache License Version 2.0
+// ==============================================================================
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// ==============================================================================
+
+trig_exec := Execute AND NOT prev_exec;
 prev_exec := Execute;
 
 IF NOT trig_exec THEN
@@ -891,7 +483,7 @@ c_vel := StartState.fVel;
 c_acc := StartState.fAcc;
 
 // ========================================================
-// 1. Acceleration Recovery (Safety Limit Check)
+// 1. Acceleration Recovery (Safety Decel to Max Limits)
 // ========================================================
 IF c_acc &gt; Limits.fAccMax + EPS_VAL THEN
 	t_rec := (c_acc - Limits.fAccMax) / Limits.fJerkMax;
@@ -926,10 +518,8 @@ IF ModeVelocity THEN
 	IF v_mid &gt; Limits.fVelMax THEN v_mid := Limits.fVelMax; END_IF;
 	IF v_mid &lt; -Limits.fVelMax THEN v_mid := -Limits.fVelMax; END_IF;
 
-	// Directly generate profile to target velocity
 	shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, v_mid, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
 	
-	// Append to Segment Buffer
 	FOR i := 1 TO shape_cnt DO
 		IF SegmentCount &lt; 32 THEN
 			SegmentCount := SegmentCount + 1;
@@ -942,23 +532,45 @@ ELSE
 	// ---------------- Position Mode ----------------
 	dist_req := TargetPos - c_pos;
 	
-	// Calculate Inertial Velocity (stopping distance param)
+	// Calculate Inertial Velocity (Peak velocity if we stopped now)
 	t_to_zero := ABS(c_acc) / Limits.fJerkMax;
-	IF c_acc &gt; 0.0 THEN j_to_zero := -Limits.fJerkMax; ELSE j_to_zero := Limits.fJerkMax; END_IF;
-	v_inertial := c_vel + c_acc * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
+	IF c_acc &gt; 0.0 THEN j_restore := -Limits.fJerkMax; ELSE j_restore := Limits.fJerkMax; END_IF;
+	v_inertial := c_vel + c_acc * t_to_zero + 0.5 * j_restore * t_to_zero * t_to_zero;
 
-	// Check 1: Direct Profile (e.g. Triangle/Trapezoid direct to target velocity causes correct distance)
-	shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-	d_direct := 0.0;
-	v_mid := c_vel; a_mid := c_acc;
-	FOR i := 1 TO shape_cnt DO
-		d_direct := d_direct + v_mid * t_shape_buf[i] + 0.5 * a_mid * t_shape_buf[i]*t_shape_buf[i] + (1.0/6.0)*j_shape_buf[i]*t_shape_buf[i]*t_shape_buf[i]*t_shape_buf[i];
-		v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
-		a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
-	END_FOR;
+	// Check 1: Max Reach Checks (Can we physically reach the target?)
+	// This determines if we need to cruise at VMax
+	d_upper := FC_S7RTT_CalcTrajDist(Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
+	d_lower := FC_S7RTT_CalcTrajDist(-Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
 
-	IF ABS(d_direct - dist_req) &lt;= EPS_DIST THEN
-		// Case: Direct solution found
+	IF dist_req &gt; d_upper + EPS_DIST THEN
+		// Case: Cruise Positive (Go to Vmax, Cruise, then Decel)
+		gap := dist_req - d_upper;
+		t_cruise := gap / Limits.fVelMax;
+		
+		// 1. Start -&gt; Vmax
+		shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+		
+		// Add Cruise Segment
+		IF t_cruise &gt; EPS_TIME THEN
+		   shape_cnt := shape_cnt + 1;
+		   t_shape_buf[shape_cnt] := t_cruise;
+		   j_shape_buf[shape_cnt] := 0.0;
+		END_IF;
+		
+		// Integ &amp; Append
+		v_mid := c_vel; a_mid := c_acc;
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+				a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+			END_IF;
+		END_FOR;
+		
+		// 2. Vmax -&gt; Target
+		shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
 		FOR i := 1 TO shape_cnt DO
 			IF SegmentCount &lt; 32 THEN
 				SegmentCount := SegmentCount + 1;
@@ -966,222 +578,177 @@ ELSE
 				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
 			END_IF;
 		END_FOR;
-	
+
+	ELSIF dist_req &lt; d_lower - EPS_DIST THEN
+		// Case: Cruise Negative
+		gap := dist_req - d_lower;
+		t_cruise := gap / (-Limits.fVelMax);
+		
+		// 1. Start -&gt; -Vmax
+		shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, -Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+		
+		IF t_cruise &gt; EPS_TIME THEN
+		   shape_cnt := shape_cnt + 1;
+		   t_shape_buf[shape_cnt] := t_cruise;
+		   j_shape_buf[shape_cnt] := 0.0;
+		END_IF;
+		
+		v_mid := c_vel; a_mid := c_acc;
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+				a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+			END_IF;
+		END_FOR;
+		
+		// 2. -Vmax -&gt; Target
+		shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+			END_IF;
+		END_FOR;
+
 	ELSE
-		// Check 2: Bounds (Max Velocity Limits)
-		d_upper := FC_S7RTT_CalcTrajDist(Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
-		d_lower := FC_S7RTT_CalcTrajDist(-Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
-
-		IF dist_req &gt; d_upper + EPS_DIST THEN
-			// Case: Cruise Positive (Target is far forward)
-			gap := dist_req - d_upper;
-			t_cruise := gap / Limits.fVelMax;
-			
-			// 1. Start -&gt; Vmax
-			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			IF t_cruise &gt; EPS_TIME THEN
-			   shape_cnt := shape_cnt + 1;
-			   t_shape_buf[shape_cnt] := t_cruise;
-			   j_shape_buf[shape_cnt] := 0.0;
-			END_IF;
-			
-			// Integ &amp; Append
-			v_mid := c_vel; a_mid := c_acc;
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
-					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
-				END_IF;
-			END_FOR;
-			
-			// 2. Vmax -&gt; Target
-			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-				END_IF;
-			END_FOR;
-
-		ELSIF dist_req &lt; d_lower - EPS_DIST THEN
-			// Case: Cruise Negative (Target is far backward)
-			gap := dist_req - d_lower;
-			t_cruise := gap / (-Limits.fVelMax);
-			
-			// 1. Start -&gt; -Vmax
-			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, -Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			IF t_cruise &gt; EPS_TIME THEN
-			   shape_cnt := shape_cnt + 1;
-			   t_shape_buf[shape_cnt] := t_cruise;
-			   j_shape_buf[shape_cnt] := 0.0;
-			END_IF;
-			
-			// Integ &amp; Append
-			v_mid := c_vel; a_mid := c_acc;
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
-					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
-				END_IF;
-			END_FOR;
-			
-			// 2. -Vmax -&gt; Target
-			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-				END_IF;
-			END_FOR;
-
+		// Case: Target is reachable without cruising at limits. 
+		// We need to find the peak velocity 'v_peak' that produces the exact distance.
+		
+		d_inertial := FC_S7RTT_CalcTrajDist(v_inertial, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
+		
+		// Define search brackets for Brent's method [sa, sb]
+		// Logic: If requested distance &gt; inertial distance, we need to go faster/more positive.
+		IF dist_req &gt; d_inertial THEN
+			sa := v_inertial - (10.0 * EPS_VAL);
+			sb := MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0;
 		ELSE
-			// Case: Solver necessary (Target is within Max Vel boundaries)
-			// Brent Solver Algorithm Inlined
+			sb := v_inertial + (10.0 * EPS_VAL);
+			sa := -(MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0);
+		END_IF;
+		
+		IF sa &gt;= sb THEN sa := sb - EPS_VAL; END_IF;
+		
+		// Function evaluation at endpoints
+		fa := FC_S7RTT_CalcTrajDist(sa, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+		fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+		
+		IF (fa &gt; 0.0 AND fb &gt; 0.0) OR (fa &lt; 0.0 AND fb &lt; 0.0) THEN
+			// Error: Root not bracketed. Use the best guess.
+			IF ABS(fa) &lt; ABS(fb) THEN best_v := sa; ELSE best_v := sb; END_IF;
+		ELSE
+			// Brent's Method Solver
+			sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
 			
-			d_inertial := FC_S7RTT_CalcTrajDist(v_inertial, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
-			
-			// Define Bracket [sa, sb]
-			IF dist_req &gt; d_inertial THEN
-				sa := v_inertial - (10.0 * EPS_VAL);
-				sb := MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0;
-			ELSE
-				sb := v_inertial + (10.0 * EPS_VAL);
-				sa := -(MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0);
-			END_IF;
-			
-			IF sa &gt;= sb THEN sa := sb - EPS_VAL; END_IF;
-			
-			// Eval endpoints
-			fa := FC_S7RTT_CalcTrajDist(sa, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
-			fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
-			
-			IF (fa &gt; 0.0 AND fb &gt; 0.0) OR (fa &lt; 0.0 AND fb &lt; 0.0) THEN
-				// Root not bracketed safe fallback
-				IF ABS(fa) &lt; ABS(fb) THEN best_v := sa; ELSE best_v := sb; END_IF;
-			ELSE
-				// Start Brent
-				sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
-				
-				FOR iter := 1 TO MAX_ITER DO
-					 IF ABS(fc) &lt; ABS(fb) THEN
-						sa := sb; sb := sc; sc := sa;
-						fa := fb; fb := fc; fc := fa;
-					 END_IF;
-					 
-					 tol1 := 2.0 * SOLVER_EPS * ABS(sb) + 0.5 * SOLVER_TOL;
-					 xm := 0.5 * (sc - sb);
-					 
-					 IF ABS(xm) &lt;= tol1 OR fb = 0.0 THEN
-						EXIT; // Converged
-					 END_IF;
-					 
-					 // Attempt Interpolation
-					 IF ABS(se) &gt;= tol1 AND ABS(fa) &gt; ABS(fb) THEN
-						fCoefS := fb / fa;
-						IF sa = sc THEN
-							// Secant
-							fCoefP := 2.0 * xm * fCoefS;
-							fCoefQ := 1.0 - fCoefS;
+			FOR iter := 1 TO MAX_ITER DO
+				 IF ABS(fc) &lt; ABS(fb) THEN
+					sa := sb; sb := sc; sc := sa;
+					fa := fb; fb := fc; fc := fa;
+				 END_IF;
+				 
+				 tol1 := 2.0 * SOLVER_EPS * ABS(sb) + 0.5 * SOLVER_TOL;
+				 xm := 0.5 * (sc - sb);
+				 
+				 IF ABS(xm) &lt;= tol1 OR ABS(fb) &lt; SOLVER_TOL THEN
+					EXIT; // Converged
+				 END_IF;
+				 
+				 IF ABS(se) &gt;= tol1 AND ABS(fa) &gt; ABS(fb) THEN
+					fCoefS := fb / fa;
+					IF sa = sc THEN
+						fCoefP := 2.0 * xm * fCoefS;
+						fCoefQ := 1.0 - fCoefS;
+					ELSE
+						fCoefQ := fa / fc; fCoefR := fb / fc;
+						fCoefP := fCoefS * (2.0 * xm * fCoefQ * (fCoefQ - fCoefR) - (sb - sa) * (fCoefR - 1.0));
+						fCoefQ := (fCoefQ - 1.0) * (fCoefR - 1.0) * (fCoefS - 1.0);
+					END_IF;
+					
+					IF fCoefP &gt; 0.0 THEN fCoefQ := -fCoefQ; END_IF;
+					fCoefP := ABS(fCoefP);
+					min1 := 3.0 * xm * fCoefQ - ABS(tol1 * fCoefQ);
+					min2 := ABS(se * fCoefQ);
+					
+					IF 2.0 * fCoefP &lt; min1 THEN
+						IF mflag THEN
+							IF 2.0 * fCoefP &lt; min2 THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
+							ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
 						ELSE
-							// Inverse Quadratic
-							fCoefQ := fa / fc; fCoefR := fb / fc;
-							fCoefP := fCoefS * (2.0 * xm * fCoefQ * (fCoefQ - fCoefR) - (sb - sa) * (fCoefR - 1.0));
-							fCoefQ := (fCoefQ - 1.0) * (fCoefR - 1.0) * (fCoefS - 1.0);
+							IF 2.0 * fCoefP &lt; ABS(sd * fCoefQ) THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
+							ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
 						END_IF;
-						
-						IF fCoefP &gt; 0.0 THEN fCoefQ := -fCoefQ; END_IF;
-						fCoefP := ABS(fCoefP);
-						min1 := 3.0 * xm * fCoefQ - ABS(tol1 * fCoefQ);
-						min2 := ABS(se * fCoefQ);
-						
-						// Validate Interpolation
-						IF 2.0 * fCoefP &lt; min1 THEN
-							IF mflag THEN
-								IF 2.0 * fCoefP &lt; min2 THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
-								ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
-							ELSE
-								IF 2.0 * fCoefP &lt; ABS(sd * fCoefQ) THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
-								ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
-							END_IF;
-						ELSE
-							sd := xm; se := sd; mflag := TRUE;
-						END_IF;
-					 ELSE
-						 sd := xm; se := sd; mflag := TRUE;
-					 END_IF;
-					 
-					 sa := sb; fa := fb;
-					 
-					 IF ABS(sd) &gt; tol1 THEN
-						sb := sb + sd;
-					 ELSE
-						IF xm &gt; 0.0 THEN sb := sb + tol1; ELSE sb := sb - tol1; END_IF;
-					 END_IF;
-					 
-					 fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
-					 
-					 IF (fb &gt; 0.0 AND fc &gt; 0.0) OR (fb &lt; 0.0 AND fc &lt; 0.0) THEN
-						 sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
-					 END_IF;
-				END_FOR;
-				best_v := sb;
+					ELSE
+						sd := xm; se := sd; mflag := TRUE;
+					END_IF;
+				 ELSE
+					 sd := xm; se := sd; mflag := TRUE;
+				 END_IF;
+				 
+				 sa := sb; fa := fb;
+				 
+				 IF ABS(sd) &gt; tol1 THEN
+					sb := sb + sd;
+				 ELSE
+					IF xm &gt; 0.0 THEN sb := sb + tol1; ELSE sb := sb - tol1; END_IF;
+				 END_IF;
+				 
+				 fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+				 
+				 IF (fb &gt; 0.0 AND fc &gt; 0.0) OR (fb &lt; 0.0 AND fc &lt; 0.0) THEN
+					 sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
+				 END_IF;
+			END_FOR;
+			best_v := sb;
+		END_IF;
+		
+		// Generate final trajectory using the solved velocity
+		// 1. Start -&gt; v_peak
+		shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, best_v, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+		v_mid := c_vel; a_mid := c_acc;
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+				a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
 			END_IF;
-			
-			// Stitch Result: 1. Start -&gt; v_peak
-			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, best_v, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			v_mid := c_vel; a_mid := c_acc;
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
-					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
-				END_IF;
-			END_FOR;
-			
-			// Stitch Result: 2. v_peak -&gt; Target
-			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-			FOR i := 1 TO shape_cnt DO
-				IF SegmentCount &lt; 32 THEN
-					SegmentCount := SegmentCount + 1;
-					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-				END_IF;
-			END_FOR;
-		END_IF; // End Solver ELSE
+		END_FOR;
+		
+		// 2. v_peak -&gt; Target
+		shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+			END_IF;
+		END_FOR;
 	END_IF; // End Bounds Checks
 END_IF; // End ModeVelocity
 
 // ========================================================
-// 3. Final State Population (Visualization)
+// 3. Final Pass: Calculate Absolute Positions
 // ========================================================
-// Start again from the very beginning to calculate absolute positions at each node
 c_pos := StartState.fPos; 
 c_vel := StartState.fVel; 
 c_acc := StartState.fAcc;
 
 FOR i := 1 TO SegmentCount DO
-	// Fill snapshot at start of segment
+	// Store the starting state of this segment
 	Trajectory[i].fPos := c_pos;
 	Trajectory[i].fVel := c_vel;
 	Trajectory[i].fAcc := c_acc;
 	
-	// Integrate to find state for next segment
 	t_rec := Trajectory[i].fDuration;
-	j_to_zero := Trajectory[i].fJerk;
+	j_restore := Trajectory[i].fJerk;
 	
-	c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * j_to_zero * t_rec*t_rec*t_rec;
-	c_vel := c_vel + c_acc * t_rec + 0.5 * j_to_zero * t_rec*t_rec;
-	c_acc := c_acc + j_to_zero * t_rec;
+	c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * j_restore * t_rec*t_rec*t_rec;
+	c_vel := c_vel + c_acc * t_rec + 0.5 * j_restore * t_rec*t_rec;
+	c_acc := c_acc + j_restore * t_rec;
 END_FOR;
 
 Done := TRUE;</xhtml>
@@ -1189,7 +756,7 @@ Done := TRUE;</xhtml>
         </body>
         <addData>
           <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>1c77f7e7-801b-4c91-bed3-5d25e7079f56</ObjectId>
+            <ObjectId>95643a16-59c8-44c0-98a3-4791271629c4</ObjectId>
           </data>
         </addData>
       </pou>
@@ -1265,20 +832,18 @@ Done := TRUE;</xhtml>
         </interface>
         <body>
           <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF ElapsedTime &lt;= 0.0 THEN
-	IF SegCount &gt; 0 THEN
-		 // Return Initial State from Array
-		 FC_S7RTT_AtTime := Trajectory[1]; 
-		 FC_S7RTT_AtTime.fDuration := 0.0;
-		 FC_S7RTT_AtTime.fJerk := 0.0;
-	ELSE
-		 FC_S7RTT_AtTime.fPos := 0.0; 
-		 FC_S7RTT_AtTime.fVel := 0.0; 
-		 FC_S7RTT_AtTime.fAcc := 0.0;
-		 FC_S7RTT_AtTime.fJerk := 0.0;
-		 FC_S7RTT_AtTime.fDuration := 0.0;
-	END_IF;
-	RETURN;
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF SegCount &lt;= 0 THEN
+    // No trajectory, return zero/empty state
+    FC_S7RTT_AtTime.fPos := 0.0; FC_S7RTT_AtTime.fVel := 0.0; FC_S7RTT_AtTime.fAcc := 0.0;
+    RETURN;
+END_IF;
+
+IF ElapsedTime &lt;= 0.0 THEN
+     // Return Initial State from First Segment
+     FC_S7RTT_AtTime := Trajectory[1]; 
+     FC_S7RTT_AtTime.fDuration := 0.0;
+     FC_S7RTT_AtTime.fJerk := 0.0;
+     RETURN;
 END_IF;
 
 t_rem := ElapsedTime;
@@ -1303,33 +868,404 @@ FOR i := 1 TO SegCount DO
 	END_IF;
 END_FOR;
 
-// Extrapolate (Overshoot) using last known state
-IF SegCount &gt; 0 THEN
-	last_idx := SegCount;
-	t := Trajectory[last_idx].fDuration;
-	j := Trajectory[last_idx].fJerk;
-	p0 := Trajectory[last_idx].fPos;
-	v0 := Trajectory[last_idx].fVel;
-	a0 := Trajectory[last_idx].fAcc;
+// Time is beyond end of trajectory
+// Calculate Final State of last segment
+last_idx := SegCount;
+t := Trajectory[last_idx].fDuration;
+j := Trajectory[last_idx].fJerk;
+p0 := Trajectory[last_idx].fPos;
+v0 := Trajectory[last_idx].fVel;
+a0 := Trajectory[last_idx].fAcc;
 
-	// Integrate fully through the last segment
-	p0 := p0 + v0 * t + 0.5 * a0 * t*t + (1.0/6.0) * j * t*t*t;
-	v0 := v0 + a0 * t + 0.5 * j * t*t;
-	// Assumed Accel 0 after move done
-	
-	FC_S7RTT_AtTime.fPos := p0 + v0 * t_rem;
-	FC_S7RTT_AtTime.fVel := v0;
-	FC_S7RTT_AtTime.fAcc := 0.0;
-	FC_S7RTT_AtTime.fJerk := 0.0;
-	FC_S7RTT_AtTime.fDuration := 0.0;
-ELSE
-	FC_S7RTT_AtTime.fPos := 0.0; FC_S7RTT_AtTime.fVel := 0.0; FC_S7RTT_AtTime.fAcc := 0.0;
-END_IF;</xhtml>
+p0 := p0 + v0 * t + 0.5 * a0 * t*t + (1.0/6.0) * j * t*t*t;
+v0 := v0 + a0 * t + 0.5 * j * t*t;
+
+// Hold Final Position (assuming v=target, a=0 at end)
+// Linear projection if Velocity is non-zero
+FC_S7RTT_AtTime.fPos := p0 + v0 * t_rem;
+FC_S7RTT_AtTime.fVel := v0;
+FC_S7RTT_AtTime.fAcc := 0.0;
+FC_S7RTT_AtTime.fJerk := 0.0;
+FC_S7RTT_AtTime.fDuration := 0.0;</xhtml>
           </ST>
         </body>
         <addData>
           <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>d5dd1389-75b8-49fc-8865-7225440b2fa9</ObjectId>
+            <ObjectId>3021c349-a048-4635-8ba3-ea39d136f9d6</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FC_S7RTT_BuildProfile" pouType="function">
+        <interface>
+          <returnType>
+            <INT />
+          </returnType>
+          <inputVars>
+            <variable name="in_v_start">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_a_start">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_v_target">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_a_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_j_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </inputVars>
+          <inOutVars>
+            <variable name="out_time">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="out_jerk">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+          </inOutVars>
+          <localVars>
+            <variable name="acc_clamped">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_to_zero">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_restore">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v_min_feasible">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="direction">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v0_mod">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a0_mod">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v1_mod">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t1_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t3_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dv_inflection">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dv_req">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dv_missing">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="term">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_peak">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t1">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t2">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t3">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="cnt">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="EPS">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-09" />
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">cnt := 0;
+
+// 1. Clamp initial acceleration to limits
+acc_clamped := in_a_start;
+IF acc_clamped &gt; in_a_max THEN acc_clamped := in_a_max; END_IF;
+IF acc_clamped &lt; -in_a_max THEN acc_clamped := -in_a_max; END_IF;
+
+// 2. Check feasibility (can we stop?)
+t_to_zero := ABS(acc_clamped) / in_j_max;
+IF ABS(acc_clamped) &gt; EPS THEN
+    IF acc_clamped &gt; 0.0 THEN j_restore := -in_j_max; ELSE j_restore := in_j_max; END_IF;
+ELSE
+    j_restore := 0.0;
+END_IF;
+
+v_min_feasible := in_v_start + acc_clamped * t_to_zero + 0.5 * j_restore * t_to_zero * t_to_zero;
+
+// 3. Determine direction
+direction := 1.0;
+IF in_v_target &lt; v_min_feasible - EPS THEN
+    direction := -1.0;
+END_IF;
+
+// 4. Normalize to positive quadrant
+v0_mod := in_v_start * direction;
+a0_mod := acc_clamped * direction;
+v1_mod := in_v_target * direction;
+
+t1_max := (in_a_max - a0_mod) / in_j_max;
+IF t1_max &lt; 0.0 THEN t1_max := 0.0; END_IF;
+
+t3_max := in_a_max / in_j_max;
+
+// Velocity change at inflection (max accel reached)
+dv_inflection := (a0_mod * t1_max + 0.5 * in_j_max * t1_max * t1_max) +
+                 (in_a_max * t3_max - 0.5 * in_j_max * t3_max * t3_max);
+
+dv_req := v1_mod - v0_mod;
+
+// 5. Calculate profile times
+IF dv_req &gt; dv_inflection THEN
+    // Trapezoidal (Constant Acceleration Phase)
+    dv_missing := dv_req - dv_inflection;
+    t2 := dv_missing / in_a_max;
+    t1 := t1_max;
+    t3 := t3_max;
+ELSE
+    // Triangular (No Constant Acceleration)
+    term := in_j_max * dv_req + 0.5 * a0_mod * a0_mod;
+    IF term &lt; 0.0 THEN term := 0.0; END_IF;
+    a_peak := SQRT(term);
+    
+    t1 := (a_peak - a0_mod) / in_j_max;
+    IF t1 &lt; 0.0 THEN t1 := 0.0; END_IF;
+    
+    t3 := a_peak / in_j_max;
+    IF t3 &lt; 0.0 THEN t3 := 0.0; END_IF;
+    
+    t2 := 0.0;
+END_IF;
+
+// 6. Output Segments
+IF t1 &gt; EPS THEN
+    cnt := cnt + 1; out_time[cnt] := t1; out_jerk[cnt] := direction * in_j_max;
+END_IF;
+IF t2 &gt; EPS THEN
+    cnt := cnt + 1; out_time[cnt] := t2; out_jerk[cnt] := 0.0;
+END_IF;
+IF t3 &gt; EPS THEN
+    cnt := cnt + 1; out_time[cnt] := t3; out_jerk[cnt] := -direction * in_j_max;
+END_IF;
+
+FC_S7RTT_BuildProfile := cnt;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>52f0419d-84c7-4f14-92ea-d17f1133d6cf</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FC_S7RTT_CalcTrajDist" pouType="function">
+        <interface>
+          <returnType>
+            <LREAL />
+          </returnType>
+          <inputVars>
+            <variable name="v_peak">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="start_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="start_a">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="target_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </inputVars>
+          <localVars>
+            <variable name="t_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="j_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="cnt">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="i">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="v_curr">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_curr">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dist_total">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_seg">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_seg">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">dist_total := 0.0;
+v_curr := start_v;
+a_curr := start_a;
+
+// Phase 1: Start -&gt; Peak Velocity
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, v_peak, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+    // Standard kinematic integration: p = p0 + v0*t + 0.5*a0*t^2 + 1/6*j*t^3
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
+END_FOR;
+
+// Phase 2: Peak Velocity -&gt; Target Velocity
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, target_v, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
+END_FOR;
+
+FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>ee9c0a18-4d98-4537-bacd-83584f252238</ObjectId>
           </data>
         </addData>
       </pou>
@@ -1342,12 +1278,12 @@ END_IF;</xhtml>
     <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
       <ProjectStructure>
         <Folder Name="S7RTT">
-          <Object Name="ST_MotionState" ObjectId="44bbd9d0-65b5-479a-84a2-0d2f5f6b8556" />
-          <Object Name="ST_MotionLimits" ObjectId="13e872a0-40d2-46c3-b98e-f242a002d839" />
-          <Object Name="FC_S7RTT_BuildProfile" ObjectId="d1640cb3-49be-4591-830b-48d7d66bcbd7" />
-          <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="5091fa0c-ab3b-4187-8ed5-58fb9d7b47fd" />
-          <Object Name="FB_S7RTT" ObjectId="1c77f7e7-801b-4c91-bed3-5d25e7079f56" />
-          <Object Name="FC_S7RTT_AtTime" ObjectId="d5dd1389-75b8-49fc-8865-7225440b2fa9" />
+          <Object Name="ST_MotionLimits" ObjectId="d3412a66-ab42-4656-b5ac-8ceac29439de" />
+          <Object Name="ST_MotionState" ObjectId="093654ef-94b9-49f9-9c6c-4acf457e8661" />
+          <Object Name="FB_S7RTT" ObjectId="95643a16-59c8-44c0-98a3-4791271629c4" />
+          <Object Name="FC_S7RTT_AtTime" ObjectId="3021c349-a048-4635-8ba3-ea39d136f9d6" />
+          <Object Name="FC_S7RTT_BuildProfile" ObjectId="52f0419d-84c7-4f14-92ea-d17f1133d6cf" />
+          <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="ee9c0a18-4d98-4537-bacd-83584f252238" />
         </Folder>
       </ProjectStructure>
     </data>
