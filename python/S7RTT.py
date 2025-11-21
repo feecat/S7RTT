@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.1
+# Version:      V1.2
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -261,98 +261,130 @@ class S7RTT:
     def plan(self, start_state, target_p, target_v, v_max, a_max, j_max):
         """
         Planning Method: Position Control.
-        Calculates a trajectory to move from start_state to target_p with final velocity target_v.
+        Optimized with caching to reduce redundant computations.
         """
+        # 1. Input Validation
         if v_max <= 0 or a_max <= 0 or j_max <= 0:
             return []
 
         current_state = start_state.copy()
         final_trajectory = []
 
-        # --- 1. Acceleration Recovery ---
-        # If current acceleration exceeds limits, ramp it down to safe limits first.
+        # 2. Acceleration Recovery (Safety)
         if current_state.a > a_max + S7RTT.EPS_VAL:
             t_recover = (current_state.a - a_max) / j_max
             rec_state = current_state.copy()
             rec_state.dt = t_recover
             rec_state.j = -j_max
             final_trajectory.append(rec_state)
-            
             current_state = self._integrate_state(current_state, t_recover, -j_max)
             current_state.a = a_max
-            
         elif current_state.a < -a_max - S7RTT.EPS_VAL:
             t_recover = (-a_max - current_state.a) / j_max
             rec_state = current_state.copy()
             rec_state.dt = t_recover
             rec_state.j = j_max
             final_trajectory.append(rec_state)
-            
             current_state = self._integrate_state(current_state, t_recover, j_max)
             current_state.a = -a_max
 
         dist_req = target_p - current_state.p
+        
+        # 3. Inertial Reference (Used for logic direction)
+        t_to_zero = abs(current_state.a) / j_max
+        j_to_zero = -j_max if current_state.a > 0 else j_max
+        v_inertial = current_state.v + current_state.a * t_to_zero + 0.5 * j_to_zero * t_to_zero**2
 
-        # --- 2. Boundary Check ---
-        # Calculate the distance traveled if we hit +V_max and -V_max respectively.
-        d_upper, acc_up, dec_up = self._compute_trajectory_dist(
-            current_state, v_max, target_v, a_max, j_max)
-            
-        d_lower, acc_lo, dec_lo = self._compute_trajectory_dist(
-            current_state, -v_max, target_v, a_max, j_max)
-
-        shape_list = []
-
-        # --- 3. Logic Branching ---
-        if dist_req > d_upper + S7RTT.EPS_DIST:
-            # Distance is large: Accelerate to V_max, Cruise, then Decelerate.
-            gap = dist_req - d_upper
-            t_cruise = gap / v_max
-            
-            shape_list.extend(acc_up)
-            if t_cruise > S7RTT.EPS_TIME: 
-                shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
-            shape_list.extend(dec_up)
-            
-        elif dist_req < d_lower - S7RTT.EPS_DIST:
-            # Distance is large (negative): Accelerate to -V_max, Cruise, then Decelerate.
-            gap = dist_req - d_lower
-            t_cruise = gap / (-v_max)
-            
-            shape_list.extend(acc_lo)
-            if t_cruise > S7RTT.EPS_TIME: 
-                shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
-            shape_list.extend(dec_lo)
+        # 4. Pre-check: Direct Profile (Fast Path)
+        direct_shape = self._build_profile(current_state.v, current_state.a, target_v, a_max, j_max)
+        d_direct = self._integrate_dist_only(current_state.v, current_state.a, direct_shape)
+        
+        if abs(d_direct - dist_req) <= S7RTT.EPS_DIST:
+            shape_list = direct_shape
             
         else:
-            # Distance is within bounds: No cruising phase at V_max is needed.
-            # Solve for the specific peak velocity that yields the exact distance.
-            def get_error(v_p):
-                d, _, _ = self._compute_trajectory_dist(
-                    current_state, v_p, target_v, a_max, j_max)
-                return d - dist_req
-            
-            max_abs_v = max(v_max, abs(current_state.v), abs(target_v)) * 2.0
-            best_v = Solver.solve_monotonic_brent(get_error, -max_abs_v, max_abs_v)
-            
-            #best_v = Solver.solve_monotonic_brent(get_error, -v_max, v_max)
-            #if abs(best_v - current_state.v) < 0.1:
-            #    best_v = current_state.v
-            
-            _, acc_fin, dec_fin = self._compute_trajectory_dist(
-                current_state, best_v, target_v, a_max, j_max)
-            
-            shape_list.extend(acc_fin)
-            shape_list.extend(dec_fin)
+            # 5. Boundary Calculation
+            d_upper, acc_up, dec_up = self._compute_trajectory_dist(
+                current_state, v_max, target_v, a_max, j_max)
+            d_lower, acc_lo, dec_lo = self._compute_trajectory_dist(
+                current_state, -v_max, target_v, a_max, j_max)
 
-        # --- 4. Stitching ---
-        # Convert relative shape segments into absolute trajectory points.
+            shape_list = []
+
+            if dist_req > d_upper + S7RTT.EPS_DIST:
+                # Target beyond positive limit
+                gap = dist_req - d_upper
+                t_cruise = gap / v_max
+                shape_list.extend(acc_up)
+                if t_cruise > S7RTT.EPS_TIME: 
+                    shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
+                shape_list.extend(dec_up)
+                
+            elif dist_req < d_lower - S7RTT.EPS_DIST:
+                # Target beyond negative limit
+                gap = dist_req - d_lower
+                t_cruise = gap / (-v_max)
+                shape_list.extend(acc_lo)
+                if t_cruise > S7RTT.EPS_TIME: 
+                    shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
+                shape_list.extend(dec_lo)
+                
+            else:
+                # Case: Within Bounds (Solver Required)
+                d_inertial, acc_inertial, dec_inertial = self._compute_trajectory_dist(
+                    current_state, v_inertial, target_v, a_max, j_max)
+                
+                # Strategy A: Inertial Snapping (Deadband)
+                if abs(d_inertial - dist_req) <= S7RTT.EPS_DIST:
+                    shape_list.extend(acc_inertial)
+                    shape_list.extend(dec_inertial)
+                    
+                else:
+                    # Strategy B: Buffered Directional Search
+                    def get_error(v_p):
+                        d, _, _ = self._compute_trajectory_dist(
+                            current_state, v_p, target_v, a_max, j_max)
+                        return d - dist_req
+
+                    limit_safe = max(v_max, abs(current_state.v), abs(target_v)) * 1.5 + 10.0
+                    overlap_v = S7RTT.EPS_VAL * 10.0 
+
+                    if dist_req > d_inertial:
+                        s_low = v_inertial - overlap_v
+                        s_high = limit_safe
+                    else:
+                        s_high = v_inertial + overlap_v
+                        s_low = -limit_safe
+                    
+                    if s_low >= s_high: s_low = s_high - S7RTT.EPS_VAL
+
+                    best_v = Solver.solve_monotonic_brent(get_error, s_low, s_high)
+                    
+                    # Strategy C: Fallback Mechanism
+                    hit_low = abs(best_v - s_low) < S7RTT.EPS_VAL
+                    hit_high = abs(best_v - s_high) < S7RTT.EPS_VAL
+                    
+                    if hit_low or hit_high:
+                        best_v = Solver.solve_monotonic_brent(get_error, -limit_safe, limit_safe)
+
+                    # Post-Process: Micro-noise filtering
+                    # If result implies v_inertial, use the cached shapes to save calculation
+                    if abs(best_v - v_inertial) < S7RTT.EPS_VAL:
+                        shape_list.extend(acc_inertial)
+                        shape_list.extend(dec_inertial)
+                    else:
+                        # Only recalculate if we actually deviated from v_inertial
+                        _, acc_fin, dec_fin = self._compute_trajectory_dist(
+                            current_state, best_v, target_v, a_max, j_max)
+                        shape_list.extend(acc_fin)
+                        shape_list.extend(dec_fin)
+
+        # 6. Stitching
         for shape in shape_list:
             node = current_state.copy()
             node.dt = shape.dt
             node.j = shape.j
             final_trajectory.append(node)
-            
             current_state = self._integrate_state(current_state, shape.dt, shape.j)
 
         return final_trajectory
