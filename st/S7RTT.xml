@@ -1,0 +1,1355 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-11-21T16:41:00.8318731" />
+  <contentHeader name="S7RTT.project" modificationDateTime="2025-11-21T16:36:04.6954486">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="1" y="1" />
+      </fbd>
+      <ld>
+        <scaling x="1" y="1" />
+      </ld>
+      <sfc>
+        <scaling x="1" y="1" />
+      </sfc>
+    </coordinateInfo>
+    <addData>
+      <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
+        <ProjectInformation />
+      </data>
+    </addData>
+  </contentHeader>
+  <types>
+    <dataTypes>
+      <dataType name="ST_MotionState">
+        <baseType>
+          <struct>
+            <variable name="fDuration">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.0" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Duration of this segment </xhtml>
+              </documentation>
+            </variable>
+            <variable name="fPos">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.0" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Position </xhtml>
+              </documentation>
+            </variable>
+            <variable name="fVel">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.0" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Velocity </xhtml>
+              </documentation>
+            </variable>
+            <variable name="fAcc">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.0" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Acceleration </xhtml>
+              </documentation>
+            </variable>
+            <variable name="fJerk">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.0" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Jerk </xhtml>
+              </documentation>
+            </variable>
+          </struct>
+        </baseType>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>44bbd9d0-65b5-479a-84a2-0d2f5f6b8556</ObjectId>
+          </data>
+        </addData>
+      </dataType>
+      <dataType name="ST_MotionLimits">
+        <baseType>
+          <struct>
+            <variable name="fVelMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fAccMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fJerkMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>13e872a0-40d2-46c3-b98e-f242a002d839</ObjectId>
+          </data>
+        </addData>
+      </dataType>
+    </dataTypes>
+    <pous>
+      <pou name="FC_S7RTT_BuildProfile" pouType="function">
+        <interface>
+          <returnType>
+            <INT />
+          </returnType>
+          <inputVars>
+            <variable name="in_v_start">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_a_start">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_v_target">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_a_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="in_j_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </inputVars>
+          <inOutVars>
+            <variable name="out_time">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="out_jerk">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+          </inOutVars>
+          <localVars>
+            <variable name="acc_clamped">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_to_zero">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_to_zero">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dv_base">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v_base">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="direction">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> 1.0 or -1.0</xhtml>
+              </documentation>
+            </variable>
+            <variable name="j_up">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_down">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v_req_total">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_limit">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t1_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t3_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dv_trap">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="needs_flat">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="v_missing">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_flat">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="term">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_peak_mag">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_peak">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t1">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t3">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="cnt">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="EPS_TIME">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-09" />
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">cnt := 0;
+
+// 1. Clamp Acceleration
+acc_clamped := in_a_start;
+IF acc_clamped &gt; in_a_max THEN acc_clamped := in_a_max; END_IF;
+IF acc_clamped &lt; -in_a_max THEN acc_clamped := -in_a_max; END_IF;
+
+// 2. Calculate Base Velocity
+t_to_zero := ABS(acc_clamped) / in_j_max;
+IF acc_clamped &gt; 0.0 THEN j_to_zero := -in_j_max; ELSE j_to_zero := in_j_max; END_IF;
+
+dv_base := acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
+v_base := in_v_start + dv_base;
+
+// 3. Determine Direction
+IF in_v_target &lt; v_base THEN
+	direction := -1.0;
+	j_up := -in_j_max;
+	j_down := in_j_max;
+ELSE
+	direction := 1.0;
+	j_up := in_j_max;
+	j_down := -in_j_max;
+END_IF;
+
+v_req_total := in_v_target - in_v_start;
+a_limit := in_a_max * direction;
+
+// Max possible time for ramp up/down
+t1_max := (a_limit - acc_clamped) / j_up;
+t3_max := ABS(a_limit) / in_j_max;
+
+// Trapezoidal check
+dv_trap := (acc_clamped * t1_max + 0.5 * j_up * t1_max * t1_max) +
+		   (a_limit * t3_max + 0.5 * j_down * t3_max * t3_max);
+
+needs_flat := FALSE;
+IF direction &gt; 0.0 THEN
+	IF v_req_total &gt; dv_trap THEN needs_flat := TRUE; END_IF;
+ELSE
+	IF v_req_total &lt; dv_trap THEN needs_flat := TRUE; END_IF;
+END_IF;
+
+IF needs_flat THEN
+	// Trapezoidal
+	v_missing := v_req_total - dv_trap;
+	t_flat := v_missing / a_limit;
+
+	IF t1_max &gt; EPS_TIME THEN
+		cnt := cnt + 1; out_time[cnt] := t1_max; out_jerk[cnt] := j_up;
+	END_IF;
+	IF t_flat &gt; EPS_TIME THEN
+		cnt := cnt + 1; out_time[cnt] := t_flat; out_jerk[cnt] := 0.0;
+	END_IF;
+	IF t3_max &gt; EPS_TIME THEN
+		cnt := cnt + 1; out_time[cnt] := t3_max; out_jerk[cnt] := j_down;
+	END_IF;
+ELSE
+	// Triangular
+	term := v_req_total * j_up + 0.5 * acc_clamped * acc_clamped;
+	IF term &lt; 0.0 THEN term := 0.0; END_IF;
+	
+	a_peak_mag := SQRT(term);
+	IF direction &gt; 0.0 THEN a_peak := a_peak_mag; ELSE a_peak := -a_peak_mag; END_IF;
+
+	t1 := (a_peak - acc_clamped) / j_up;
+	t3 := (0.0 - a_peak) / j_down;
+
+	IF t1 &gt; EPS_TIME THEN
+		cnt := cnt + 1; out_time[cnt] := t1; out_jerk[cnt] := j_up;
+	END_IF;
+	IF t3 &gt; EPS_TIME THEN
+		cnt := cnt + 1; out_time[cnt] := t3; out_jerk[cnt] := j_down;
+	END_IF;
+END_IF;
+
+FC_S7RTT_BuildProfile := cnt;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>d1640cb3-49be-4591-830b-48d7d66bcbd7</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FC_S7RTT_CalcTrajDist" pouType="function">
+        <interface>
+          <returnType>
+            <LREAL />
+          </returnType>
+          <inputVars>
+            <variable name="v_peak">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> The variable solver is controlling </xhtml>
+              </documentation>
+            </variable>
+            <variable name="start_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="start_a">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="target_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </inputVars>
+          <localVars>
+            <variable name="t_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="j_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="cnt">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="i">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="v_curr">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_curr">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="dist_total">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_seg">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_seg">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">dist_total := 0.0;
+v_curr := start_v;
+a_curr := start_a;
+
+// Phase 1: Start -&gt; Peak
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, v_peak, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
+END_FOR;
+
+// Phase 2: Peak -&gt; Target
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, target_v, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
+END_FOR;
+
+FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>5091fa0c-ab3b-4187-8ed5-58fb9d7b47fd</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FB_S7RTT" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="Execute">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="ModeVelocity">
+              <type>
+                <BOOL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> FALSE=Position Plan, TRUE=Velocity Plan </xhtml>
+              </documentation>
+            </variable>
+            <variable name="StartState">
+              <type>
+                <derived name="ST_MotionState" />
+              </type>
+            </variable>
+            <variable name="TargetPos">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Valid if ModeVelocity=FALSE </xhtml>
+              </documentation>
+            </variable>
+            <variable name="TargetVel">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="Limits">
+              <type>
+                <derived name="ST_MotionLimits" />
+              </type>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="Done">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="Error">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="SegmentCount">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="Trajectory">
+              <type>
+                <array>
+                  <dimension lower="1" upper="32" />
+                  <baseType>
+                    <derived name="ST_MotionState" />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="trig_exec">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="prev_exec">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="c_pos">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
+              </documentation>
+            </variable>
+            <variable name="c_vel">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
+              </documentation>
+            </variable>
+            <variable name="c_acc">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Internal Simulation Vars</xhtml>
+              </documentation>
+            </variable>
+            <variable name="dist_req">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="iter">
+              <type>
+                <INT />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Brent Solver Vars</xhtml>
+              </documentation>
+            </variable>
+            <variable name="sa">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="sb">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="sc">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fa">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fb">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fc">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="sd">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="se">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="tol1">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="xm">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fCoefP">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fCoefQ">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fCoefR">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fCoefS">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="min1">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="min2">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="mflag">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="best_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_shape_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Buffer Helpers</xhtml>
+              </documentation>
+            </variable>
+            <variable name="j_shape_buf">
+              <type>
+                <array>
+                  <dimension lower="1" upper="5" />
+                  <baseType>
+                    <LREAL />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="shape_cnt">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="i">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="t_rec">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Temp logic vars</xhtml>
+              </documentation>
+            </variable>
+            <variable name="d_direct">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="d_upper">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="d_lower">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="d_inertial">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v_inertial">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_to_zero">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_to_zero">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="gap">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_cruise">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v_mid">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_mid">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="EPS_TIME">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-09" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml"> Constants</xhtml>
+              </documentation>
+            </variable>
+            <variable name="EPS_VAL">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-06" />
+              </initialValue>
+            </variable>
+            <variable name="EPS_DIST">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-05" />
+              </initialValue>
+            </variable>
+            <variable name="SOLVER_TOL">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="1E-12" />
+              </initialValue>
+            </variable>
+            <variable name="SOLVER_EPS">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="2.22E-16" />
+              </initialValue>
+            </variable>
+            <variable name="MAX_ITER">
+              <type>
+                <INT />
+              </type>
+              <initialValue>
+                <simpleValue value="100" />
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">trig_exec := Execute AND NOT prev_exec;
+prev_exec := Execute;
+
+IF NOT trig_exec THEN
+	RETURN;
+END_IF;
+
+// --- Initialization ---
+Done := FALSE;
+Error := FALSE;
+SegmentCount := 0;
+
+IF Limits.fVelMax &lt;= 0.0 OR Limits.fAccMax &lt;= 0.0 OR Limits.fJerkMax &lt;= 0.0 THEN
+	Error := TRUE;
+	RETURN;
+END_IF;
+
+c_pos := StartState.fPos;
+c_vel := StartState.fVel;
+c_acc := StartState.fAcc;
+
+// ========================================================
+// 1. Acceleration Recovery (Safety Limit Check)
+// ========================================================
+IF c_acc &gt; Limits.fAccMax + EPS_VAL THEN
+	t_rec := (c_acc - Limits.fAccMax) / Limits.fJerkMax;
+	SegmentCount := SegmentCount + 1;
+	Trajectory[SegmentCount].fDuration := t_rec;
+	Trajectory[SegmentCount].fJerk     := -Limits.fJerkMax;
+	
+	// Integrate state forward
+	c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * (-Limits.fJerkMax) * t_rec*t_rec*t_rec;
+	c_vel := c_vel + c_acc * t_rec + 0.5 * (-Limits.fJerkMax) * t_rec*t_rec;
+	c_acc := Limits.fAccMax;
+	
+ELSIF c_acc &lt; -Limits.fAccMax - EPS_VAL THEN
+	t_rec := (-Limits.fAccMax - c_acc) / Limits.fJerkMax;
+	SegmentCount := SegmentCount + 1;
+	Trajectory[SegmentCount].fDuration := t_rec;
+	Trajectory[SegmentCount].fJerk     := Limits.fJerkMax;
+	
+	// Integrate state forward
+	c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * (Limits.fJerkMax) * t_rec*t_rec*t_rec;
+	c_vel := c_vel + c_acc * t_rec + 0.5 * (Limits.fJerkMax) * t_rec*t_rec;
+	c_acc := -Limits.fAccMax;
+END_IF;
+
+// ========================================================
+// 2. Plan Generation
+// ========================================================
+
+IF ModeVelocity THEN
+	// ---------------- Velocity Mode ----------------
+	v_mid := TargetVel; 
+	IF v_mid &gt; Limits.fVelMax THEN v_mid := Limits.fVelMax; END_IF;
+	IF v_mid &lt; -Limits.fVelMax THEN v_mid := -Limits.fVelMax; END_IF;
+
+	// Directly generate profile to target velocity
+	shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, v_mid, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+	
+	// Append to Segment Buffer
+	FOR i := 1 TO shape_cnt DO
+		IF SegmentCount &lt; 32 THEN
+			SegmentCount := SegmentCount + 1;
+			Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+			Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+		END_IF;
+	END_FOR;
+
+ELSE
+	// ---------------- Position Mode ----------------
+	dist_req := TargetPos - c_pos;
+	
+	// Calculate Inertial Velocity (stopping distance param)
+	t_to_zero := ABS(c_acc) / Limits.fJerkMax;
+	IF c_acc &gt; 0.0 THEN j_to_zero := -Limits.fJerkMax; ELSE j_to_zero := Limits.fJerkMax; END_IF;
+	v_inertial := c_vel + c_acc * t_to_zero + 0.5 * j_to_zero * t_to_zero * t_to_zero;
+
+	// Check 1: Direct Profile (e.g. Triangle/Trapezoid direct to target velocity causes correct distance)
+	shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+	d_direct := 0.0;
+	v_mid := c_vel; a_mid := c_acc;
+	FOR i := 1 TO shape_cnt DO
+		d_direct := d_direct + v_mid * t_shape_buf[i] + 0.5 * a_mid * t_shape_buf[i]*t_shape_buf[i] + (1.0/6.0)*j_shape_buf[i]*t_shape_buf[i]*t_shape_buf[i]*t_shape_buf[i];
+		v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+		a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+	END_FOR;
+
+	IF ABS(d_direct - dist_req) &lt;= EPS_DIST THEN
+		// Case: Direct solution found
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+			END_IF;
+		END_FOR;
+	
+	ELSE
+		// Check 2: Bounds (Max Velocity Limits)
+		d_upper := FC_S7RTT_CalcTrajDist(Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
+		d_lower := FC_S7RTT_CalcTrajDist(-Limits.fVelMax, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
+
+		IF dist_req &gt; d_upper + EPS_DIST THEN
+			// Case: Cruise Positive (Target is far forward)
+			gap := dist_req - d_upper;
+			t_cruise := gap / Limits.fVelMax;
+			
+			// 1. Start -&gt; Vmax
+			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			IF t_cruise &gt; EPS_TIME THEN
+			   shape_cnt := shape_cnt + 1;
+			   t_shape_buf[shape_cnt] := t_cruise;
+			   j_shape_buf[shape_cnt] := 0.0;
+			END_IF;
+			
+			// Integ &amp; Append
+			v_mid := c_vel; a_mid := c_acc;
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+				END_IF;
+			END_FOR;
+			
+			// 2. Vmax -&gt; Target
+			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				END_IF;
+			END_FOR;
+
+		ELSIF dist_req &lt; d_lower - EPS_DIST THEN
+			// Case: Cruise Negative (Target is far backward)
+			gap := dist_req - d_lower;
+			t_cruise := gap / (-Limits.fVelMax);
+			
+			// 1. Start -&gt; -Vmax
+			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, -Limits.fVelMax, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			IF t_cruise &gt; EPS_TIME THEN
+			   shape_cnt := shape_cnt + 1;
+			   t_shape_buf[shape_cnt] := t_cruise;
+			   j_shape_buf[shape_cnt] := 0.0;
+			END_IF;
+			
+			// Integ &amp; Append
+			v_mid := c_vel; a_mid := c_acc;
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+				END_IF;
+			END_FOR;
+			
+			// 2. -Vmax -&gt; Target
+			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				END_IF;
+			END_FOR;
+
+		ELSE
+			// Case: Solver necessary (Target is within Max Vel boundaries)
+			// Brent Solver Algorithm Inlined
+			
+			d_inertial := FC_S7RTT_CalcTrajDist(v_inertial, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax);
+			
+			// Define Bracket [sa, sb]
+			IF dist_req &gt; d_inertial THEN
+				sa := v_inertial - (10.0 * EPS_VAL);
+				sb := MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0;
+			ELSE
+				sb := v_inertial + (10.0 * EPS_VAL);
+				sa := -(MAX(Limits.fVelMax, MAX(ABS(c_vel), ABS(TargetVel))) * 1.5 + 10.0);
+			END_IF;
+			
+			IF sa &gt;= sb THEN sa := sb - EPS_VAL; END_IF;
+			
+			// Eval endpoints
+			fa := FC_S7RTT_CalcTrajDist(sa, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+			fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+			
+			IF (fa &gt; 0.0 AND fb &gt; 0.0) OR (fa &lt; 0.0 AND fb &lt; 0.0) THEN
+				// Root not bracketed safe fallback
+				IF ABS(fa) &lt; ABS(fb) THEN best_v := sa; ELSE best_v := sb; END_IF;
+			ELSE
+				// Start Brent
+				sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
+				
+				FOR iter := 1 TO MAX_ITER DO
+					 IF ABS(fc) &lt; ABS(fb) THEN
+						sa := sb; sb := sc; sc := sa;
+						fa := fb; fb := fc; fc := fa;
+					 END_IF;
+					 
+					 tol1 := 2.0 * SOLVER_EPS * ABS(sb) + 0.5 * SOLVER_TOL;
+					 xm := 0.5 * (sc - sb);
+					 
+					 IF ABS(xm) &lt;= tol1 OR fb = 0.0 THEN
+						EXIT; // Converged
+					 END_IF;
+					 
+					 // Attempt Interpolation
+					 IF ABS(se) &gt;= tol1 AND ABS(fa) &gt; ABS(fb) THEN
+						fCoefS := fb / fa;
+						IF sa = sc THEN
+							// Secant
+							fCoefP := 2.0 * xm * fCoefS;
+							fCoefQ := 1.0 - fCoefS;
+						ELSE
+							// Inverse Quadratic
+							fCoefQ := fa / fc; fCoefR := fb / fc;
+							fCoefP := fCoefS * (2.0 * xm * fCoefQ * (fCoefQ - fCoefR) - (sb - sa) * (fCoefR - 1.0));
+							fCoefQ := (fCoefQ - 1.0) * (fCoefR - 1.0) * (fCoefS - 1.0);
+						END_IF;
+						
+						IF fCoefP &gt; 0.0 THEN fCoefQ := -fCoefQ; END_IF;
+						fCoefP := ABS(fCoefP);
+						min1 := 3.0 * xm * fCoefQ - ABS(tol1 * fCoefQ);
+						min2 := ABS(se * fCoefQ);
+						
+						// Validate Interpolation
+						IF 2.0 * fCoefP &lt; min1 THEN
+							IF mflag THEN
+								IF 2.0 * fCoefP &lt; min2 THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
+								ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
+							ELSE
+								IF 2.0 * fCoefP &lt; ABS(sd * fCoefQ) THEN se := sd; sd := fCoefP / fCoefQ; mflag := FALSE;
+								ELSE sd := xm; se := sd; mflag := TRUE; END_IF;
+							END_IF;
+						ELSE
+							sd := xm; se := sd; mflag := TRUE;
+						END_IF;
+					 ELSE
+						 sd := xm; se := sd; mflag := TRUE;
+					 END_IF;
+					 
+					 sa := sb; fa := fb;
+					 
+					 IF ABS(sd) &gt; tol1 THEN
+						sb := sb + sd;
+					 ELSE
+						IF xm &gt; 0.0 THEN sb := sb + tol1; ELSE sb := sb - tol1; END_IF;
+					 END_IF;
+					 
+					 fb := FC_S7RTT_CalcTrajDist(sb, c_vel, c_acc, TargetVel, Limits.fAccMax, Limits.fJerkMax) - dist_req;
+					 
+					 IF (fb &gt; 0.0 AND fc &gt; 0.0) OR (fb &lt; 0.0 AND fc &lt; 0.0) THEN
+						 sc := sa; fc := fa; sd := sb - sa; se := sd; mflag := TRUE;
+					 END_IF;
+				END_FOR;
+				best_v := sb;
+			END_IF;
+			
+			// Stitch Result: 1. Start -&gt; v_peak
+			shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, best_v, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			v_mid := c_vel; a_mid := c_acc;
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+					v_mid := v_mid + a_mid * t_shape_buf[i] + 0.5 * j_shape_buf[i] * t_shape_buf[i]*t_shape_buf[i];
+					a_mid := a_mid + j_shape_buf[i] * t_shape_buf[i];
+				END_IF;
+			END_FOR;
+			
+			// Stitch Result: 2. v_peak -&gt; Target
+			shape_cnt := FC_S7RTT_BuildProfile(v_mid, a_mid, TargetVel, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
+			FOR i := 1 TO shape_cnt DO
+				IF SegmentCount &lt; 32 THEN
+					SegmentCount := SegmentCount + 1;
+					Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+					Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+				END_IF;
+			END_FOR;
+		END_IF; // End Solver ELSE
+	END_IF; // End Bounds Checks
+END_IF; // End ModeVelocity
+
+// ========================================================
+// 3. Final State Population (Visualization)
+// ========================================================
+// Start again from the very beginning to calculate absolute positions at each node
+c_pos := StartState.fPos; 
+c_vel := StartState.fVel; 
+c_acc := StartState.fAcc;
+
+FOR i := 1 TO SegmentCount DO
+	// Fill snapshot at start of segment
+	Trajectory[i].fPos := c_pos;
+	Trajectory[i].fVel := c_vel;
+	Trajectory[i].fAcc := c_acc;
+	
+	// Integrate to find state for next segment
+	t_rec := Trajectory[i].fDuration;
+	j_to_zero := Trajectory[i].fJerk;
+	
+	c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * j_to_zero * t_rec*t_rec*t_rec;
+	c_vel := c_vel + c_acc * t_rec + 0.5 * j_to_zero * t_rec*t_rec;
+	c_acc := c_acc + j_to_zero * t_rec;
+END_FOR;
+
+Done := TRUE;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>1c77f7e7-801b-4c91-bed3-5d25e7079f56</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FC_S7RTT_AtTime" pouType="function">
+        <interface>
+          <returnType>
+            <derived name="ST_MotionState" />
+          </returnType>
+          <inputVars>
+            <variable name="Trajectory">
+              <type>
+                <array>
+                  <dimension lower="1" upper="32" />
+                  <baseType>
+                    <derived name="ST_MotionState" />
+                  </baseType>
+                </array>
+              </type>
+            </variable>
+            <variable name="SegCount">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="ElapsedTime">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </inputVars>
+          <localVars>
+            <variable name="i">
+              <type>
+                <INT />
+              </type>
+            </variable>
+            <variable name="t_rem">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="p0">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="v0">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a0">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="last_idx">
+              <type>
+                <INT />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">IF ElapsedTime &lt;= 0.0 THEN
+	IF SegCount &gt; 0 THEN
+		 // Return Initial State from Array
+		 FC_S7RTT_AtTime := Trajectory[1]; 
+		 FC_S7RTT_AtTime.fDuration := 0.0;
+		 FC_S7RTT_AtTime.fJerk := 0.0;
+	ELSE
+		 FC_S7RTT_AtTime.fPos := 0.0; 
+		 FC_S7RTT_AtTime.fVel := 0.0; 
+		 FC_S7RTT_AtTime.fAcc := 0.0;
+		 FC_S7RTT_AtTime.fJerk := 0.0;
+		 FC_S7RTT_AtTime.fDuration := 0.0;
+	END_IF;
+	RETURN;
+END_IF;
+
+t_rem := ElapsedTime;
+
+FOR i := 1 TO SegCount DO
+	IF t_rem &lt;= Trajectory[i].fDuration THEN
+		t := t_rem;
+		j := Trajectory[i].fJerk;
+		// Use pre-calculated state at segment start
+		p0 := Trajectory[i].fPos;
+		v0 := Trajectory[i].fVel;
+		a0 := Trajectory[i].fAcc;
+
+		FC_S7RTT_AtTime.fPos := p0 + v0 * t + 0.5 * a0 * t*t + (1.0/6.0) * j * t*t*t;
+		FC_S7RTT_AtTime.fVel := v0 + a0 * t + 0.5 * j * t*t;
+		FC_S7RTT_AtTime.fAcc := a0 + j * t;
+		FC_S7RTT_AtTime.fJerk := j;
+		FC_S7RTT_AtTime.fDuration := 0.0;
+		RETURN;
+	ELSE
+		t_rem := t_rem - Trajectory[i].fDuration;
+	END_IF;
+END_FOR;
+
+// Extrapolate (Overshoot) using last known state
+IF SegCount &gt; 0 THEN
+	last_idx := SegCount;
+	t := Trajectory[last_idx].fDuration;
+	j := Trajectory[last_idx].fJerk;
+	p0 := Trajectory[last_idx].fPos;
+	v0 := Trajectory[last_idx].fVel;
+	a0 := Trajectory[last_idx].fAcc;
+
+	// Integrate fully through the last segment
+	p0 := p0 + v0 * t + 0.5 * a0 * t*t + (1.0/6.0) * j * t*t*t;
+	v0 := v0 + a0 * t + 0.5 * j * t*t;
+	// Assumed Accel 0 after move done
+	
+	FC_S7RTT_AtTime.fPos := p0 + v0 * t_rem;
+	FC_S7RTT_AtTime.fVel := v0;
+	FC_S7RTT_AtTime.fAcc := 0.0;
+	FC_S7RTT_AtTime.fJerk := 0.0;
+	FC_S7RTT_AtTime.fDuration := 0.0;
+ELSE
+	FC_S7RTT_AtTime.fPos := 0.0; FC_S7RTT_AtTime.fVel := 0.0; FC_S7RTT_AtTime.fAcc := 0.0;
+END_IF;</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>d5dd1389-75b8-49fc-8865-7225440b2fa9</ObjectId>
+          </data>
+        </addData>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations />
+  </instances>
+  <addData>
+    <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
+      <ProjectStructure>
+        <Folder Name="S7RTT">
+          <Object Name="ST_MotionState" ObjectId="44bbd9d0-65b5-479a-84a2-0d2f5f6b8556" />
+          <Object Name="ST_MotionLimits" ObjectId="13e872a0-40d2-46c3-b98e-f242a002d839" />
+          <Object Name="FC_S7RTT_BuildProfile" ObjectId="d1640cb3-49be-4591-830b-48d7d66bcbd7" />
+          <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="5091fa0c-ab3b-4187-8ed5-58fb9d7b47fd" />
+          <Object Name="FB_S7RTT" ObjectId="1c77f7e7-801b-4c91-bed3-5d25e7079f56" />
+          <Object Name="FC_S7RTT_AtTime" ObjectId="d5dd1389-75b8-49fc-8865-7225440b2fa9" />
+        </Folder>
+      </ProjectStructure>
+    </data>
+  </addData>
+</project>
