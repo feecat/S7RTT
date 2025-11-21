@@ -1,65 +1,68 @@
-# S7RTT.py
-import math
+# ==============================================================================
+# File Name:    S7RTT.py
+# Author:       feecat
+# Version:      V1.1
+# Description:  Simple 7seg Real-Time Trajectory Generator
+# Website:      https://github.com/feecat/S7RTT
+# License:      Apache License Version 2.0
+# ==============================================================================
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-# ==========================================
-# 1. Mathematical Solver
-# ==========================================
+import math
 
 class Solver:
     """
-    Utility class for numerical root finding.
+    A numerical solver utility using Brent's Method.
+    Primarily used to find the exact peak velocity required to align the
+    trajectory's total distance with the target position.
     """
     
-    # Constants for convergence criteria
-    EPS_TOL = 1e-8
-    EPS_CONVERGE = 1e-12
-    MAX_ITER = 50
+    EPS_TOL = 1e-8       # Tolerance for function value convergence
+    EPS_CONVERGE = 1e-12 # Tolerance for interval convergence
+    MAX_ITER = 50        # Maximum iterations to prevent infinite loops
 
     @staticmethod
     def solve_monotonic_brent(func, low, high):
         """
-        Brent's Method for finding a root (func(x) = 0) within [low, high].
-        
-        Args:
-            func: Callable function taking a float and returning a float.
-            low: Lower bound of interval.
-            high: Upper bound of interval.
-            
-        Returns:
-            float: The estimated root.
+        Finds the root of a monotonic function 'func' within the interval [low, high].
         """
         f_low = func(low)
         f_high = func(high)
         
-        # If signs match, we cannot bracket the root strictly. 
-        # Return the side closer to zero.
+        # If the root is bracketed, return the side closer to zero
         if f_low * f_high > 0:
-            if abs(f_low) < abs(f_high):
-                return low
-            else:
-                return high
+            if abs(f_low) < abs(f_high): return low
+            else: return high
             
-        a = low
-        b = high
-        fa = f_low
-        fb = f_high
+        a = low; b = high
+        fa = f_low; fb = f_high
         
         root_est = b
         
         for _ in range(Solver.MAX_ITER):
-            # Ensure 'b' is always the better guess
+            # Ensure 'b' is the better estimate (closer to 0)
             if abs(fa) < abs(fb):
-                # Swap a and b
-                temp = a; a = b; b = temp
-                temp = fa; fa = fb; fb = temp
+                a, b = b, a
+                fa, fb = fb, fa
             
-            # Check convergence
+            # Check for convergence
             if abs(fb - fa) < Solver.EPS_CONVERGE:
                 root_est = b
                 break
             else:
-                # Inverse quadratic interpolation / Secant step
-                # Guard against division by zero
+                # Try Inverse Quadratic Interpolation
                 if abs(fa - fb) > 1e-14:
                     root_est = b - fb * (b - a) / (fb - fa)
                 else:
@@ -67,14 +70,14 @@ class Solver:
             
             mid_val = 0.5 * (a + b)
             
-            # Bisection fallback conditions (standard Brent logic)
+            # Conditions to fall back to Bisection method
             cond1 = (root_est < mid_val and b < mid_val)
             cond2 = (root_est > mid_val and b > mid_val)
             
             if cond1 or cond2:
                 root_est = mid_val
             
-            # Safety: clamp strictly between a and b to prevent divergence
+            # Ensure estimate stays within bounds
             min_val = a if a < b else b
             max_val = a if a > b else b
             
@@ -87,59 +90,42 @@ class Solver:
             if abs(f_root) < Solver.EPS_TOL or abs(b - a) < Solver.EPS_TOL:
                 return root_est
             
-            # Tighten the bracket
+            # Update the brackets based on the sign
             if fa * f_root < 0:
-                b = root_est
-                fb = f_root
+                b = root_est; fb = f_root
             else:
-                a = root_est
-                fa = f_root
+                a = root_est; fa = f_root
                 
         return root_est
 
-# ==========================================
-# 2. Data Structures
-# ==========================================
 
 class MotionState:
     """
-    Represents kinematic state: P, V, A, J.
+    Represents the kinematic state at a specific node in the trajectory.
+    Includes position (p), velocity (v), acceleration (a), jerk (j),
+    and the duration (dt) to maintain this jerk.
     """
-    def __init__(self, p=0.0, v=0.0, a=0.0, j=0.0):
+    def __init__(self, dt=0.0, p=0.0, v=0.0, a=0.0, j=0.0):
+        self.dt = float(dt) if dt > 0.0 else 0.0
         self.p = float(p)
         self.v = float(v)
         self.a = float(a)
         self.j = float(j)
 
     def copy(self):
-        return MotionState(self.p, self.v, self.a, self.j)
+        return MotionState(self.dt, self.p, self.v, self.a, self.j)
 
     def __repr__(self):
-        return "State(P=%.3f, V=%.3f, A=%.3f)" % (self.p, self.v, self.a)
+        return "State(dt=%.4f, P=%.3f, V=%.3f, A=%.3f, J=%.2f)" % \
+               (self.dt, self.p, self.v, self.a, self.j)
 
-class Segment:
-    """
-    Represents a constant jerk segment (Jerk, Duration).
-    """
-    def __init__(self, jerk, duration):
-        self.jerk = float(jerk)
-        # Ensure time is never negative
-        self.duration = duration if duration > 0.0 else 0.0
-
-    def __repr__(self):
-        return "Seg(J=%.2f, T=%.4f)" % (self.jerk, self.duration)
-
-# ==========================================
-# 3. Planner Class
-# ==========================================
 
 class S7RTT:
     """
-    S-Curve Trajectory Planner (7-Segment Profile).
-    Handles Asymmetric Jerk limits and non-zero initial acceleration.
+    S-Curve (7-Segment) Trajectory Planner.
+    Generates jerk-limited motion profiles (S-curves) for position and velocity control.
     """
     
-    # Global epsilons for decision making
     EPS_TIME = 1e-9
     EPS_VAL  = 1e-6
     EPS_DIST = 1e-5
@@ -147,34 +133,26 @@ class S7RTT:
     def __init__(self):
         pass
 
-    def integrate_path(self, start_state, segments):
+    def _integrate_state(self, state, dt, j):
         """
-        Forward integration of motion equations.
-        Returns the final state after applying all segments.
+        Calculates the next state after applying constant jerk 'j' for duration 'dt'.
         """
-        curr = start_state.copy()
-        for seg in segments:
-            t = seg.duration
-            j = seg.jerk
-            
-            # Standard kinematics integration (Taylor series)
-            curr.p += curr.v * t + 0.5 * curr.a * t**2 + (1.0/6.0) * j * t**3
-            curr.v += curr.a * t + 0.5 * j * t**2
-            curr.a += j * t
-            curr.j = j
-        return curr
+        p = state.p + state.v * dt + 0.5 * state.a * dt**2 + (1.0/6.0) * j * dt**3
+        v = state.v + state.a * dt + 0.5 * j * dt**2
+        a = state.a + j * dt
+        return MotionState(0.0, p, v, a, 0.0)
 
-    def _integrate_dist(self, v0, a0, segments):
+    def _integrate_dist_only(self, v0, a0, state_list):
         """
-        Helper: Calculate distance delta given initial v, a and segments.
-        Avoids creating full State objects to save overhead.
+        Lightweight integration used by the solver to calculate total displacement
+        without the overhead of creating new MotionState objects.
         """
         dist = 0.0
         v = v0
         a = a0
-        for seg in segments:
-            t = seg.duration
-            j = seg.jerk
+        for s in state_list:
+            t = s.dt
+            j = s.j
             dist += v * t + 0.5 * a * t**2 + (1.0/6.0) * j * t**3
             v += a * t + 0.5 * j * t**2
             a += j * t
@@ -182,52 +160,46 @@ class S7RTT:
 
     def _build_profile(self, v_start, a_start, v_target, a_max, j_max):
         """
-        Constructs the velocity change profile (Acc/Decel segments)
-        to go from (v_start, a_start) to (v_target, 0.0).
+        Generates the velocity change profile (acceleration or deceleration phase).
+        Returns a list of segments (ramp up jerk, constant acc, ramp down jerk).
+        Handles both Trapezoidal acceleration (reaching a_max) and Triangular acceleration.
         """
-        segments = []
+        shape_states = []
         
-        # 1. Clamp A_start to prevent numerical instability if input is bad
+        # 1. Clamp start acceleration to limits for safety
         acc_clamped = a_start
         if acc_clamped > a_max: acc_clamped = a_max
         if acc_clamped < -a_max: acc_clamped = -a_max
         
-        # 2. Calculate "Base Velocity"
-        # This is the velocity reached if we reduce acceleration to zero immediately.
-        # It acts as a heuristic to decide direction.
+        # 2. Calculate velocity reached if we immediately reduce acceleration to zero
         t_to_zero = abs(acc_clamped) / j_max
         j_to_zero = -j_max if acc_clamped > 0 else j_max
-        
         dv_base = acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero**2
         v_base = v_start + dv_base
         
-        # 3. Decide Direction (1.0 for Accel, -1.0 for Decel)
+        # 3. Determine direction of the required profile
         direction = 1.0
         if v_target < v_base:
             direction = -1.0
             
-        # Setup Jerk parameters based on direction
         if direction > 0:
-            j_up = j_max
-            j_down = -j_max
+            j_up, j_down = j_max, -j_max
         else:
-            j_up = -j_max
-            j_down = j_max
+            j_up, j_down = -j_max, j_max
             
-        # 4. Solve for A_peak
+        # 4. Calculate constraints and thresholds
         v_req_total = v_target - v_start
         a_limit = a_max * direction
         
-        # Calculate capacity of a Trapezoidal profile (Acc -> Flat -> Dec)
-        # T1: acc_clamped -> a_limit
+        # Time required to ramp from current acceleration to limit, and limit to zero
         t1_max = (a_limit - acc_clamped) / j_up
-        # T3: a_limit -> 0
         t3_max = abs(a_limit) / j_max
         
+        # Velocity change provided by a full trapezoidal profile without the constant acceleration phase
         dv_trapezoid = (acc_clamped * t1_max + 0.5 * j_up * t1_max**2) + \
                        (a_limit * t3_max + 0.5 * j_down * t3_max**2)
         
-        # Check if we need a flat top (constant acceleration phase)
+        # 5. Determine if we need a flat acceleration phase (Trapezoidal)
         needs_flat = False
         if direction > 0:
             if v_req_total > dv_trapezoid: needs_flat = True
@@ -235,26 +207,20 @@ class S7RTT:
             if v_req_total < dv_trapezoid: needs_flat = True
             
         if needs_flat:
-            # --- Trapezoidal Profile ---
+            # Trapezoidal Profile (reaches max acceleration)
             v_missing = v_req_total - dv_trapezoid
             t_flat = v_missing / a_limit
             
             if t1_max > S7RTT.EPS_TIME: 
-                segments.append(Segment(j_up, t1_max))
+                shape_states.append(MotionState(t1_max, 0,0,0, j_up))
             if t_flat > S7RTT.EPS_TIME: 
-                segments.append(Segment(0.0, t_flat))
+                shape_states.append(MotionState(t_flat, 0,0,0, 0.0))
             if t3_max > S7RTT.EPS_TIME: 
-                segments.append(Segment(j_down, t3_max))
-            
+                shape_states.append(MotionState(t3_max, 0,0,0, j_down))
         else:
-            # --- Triangular Profile ---
-            # We cannot reach a_max. Solve for peak acceleration.
-            # Robust calculation of a_peak magnitude
+            # Triangular Profile (does not reach max acceleration)
             term = v_req_total * j_up + 0.5 * acc_clamped**2
-            
-            if term < 0: 
-                term = 0.0
-                
+            if term < 0: term = 0.0
             a_peak_mag = math.sqrt(term)
             a_peak = a_peak_mag if direction > 0 else -a_peak_mag
                 
@@ -262,123 +228,231 @@ class S7RTT:
             t3 = (0.0 - a_peak) / j_down
             
             if t1 > S7RTT.EPS_TIME: 
-                segments.append(Segment(j_up, t1))
+                shape_states.append(MotionState(t1, 0,0,0, j_up))
             if t3 > S7RTT.EPS_TIME: 
-                segments.append(Segment(j_down, t3))
+                shape_states.append(MotionState(t3, 0,0,0, j_down))
             
-        return segments
+        return shape_states
 
     def _compute_trajectory_dist(self, start_state, v_peak, target_v, a_max, j_max):
         """
-        Calculates total distance and generates segments for:
-        Start -> v_peak -> Target
+        Simulates a full trajectory: Accelerate to v_peak, then Decelerate to target_v.
+        Returns the total distance traveled and the shape segments.
         """
-        # Phase 1: Accelerate/Decelerate from start to v_peak
-        acc_segs = self._build_profile(start_state.v, start_state.a, v_peak, a_max, j_max)
+        # Phase 1: Start -> Peak Velocity
+        acc_shape = self._build_profile(start_state.v, start_state.a, v_peak, a_max, j_max)
         
-        # Simulate state at the middle point (v_peak achieved)
-        # We only need the intermediate State to start the second half
-        state_mid = self.integrate_path(start_state, acc_segs)
+        # Integrate to find state at peak velocity
+        v_mid = start_state.v
+        a_mid = start_state.a
+        for s in acc_shape:
+            v_mid += a_mid * s.dt + 0.5 * s.j * s.dt**2
+            a_mid += s.j * s.dt
+            
+        # Phase 2: Peak Velocity -> Target Velocity
+        dec_shape = self._build_profile(v_mid, a_mid, target_v, a_max, j_max)
         
-        # Phase 2: Accelerate/Decelerate from v_peak to target_v
-        dec_segs = self._build_profile(state_mid.v, state_mid.a, target_v, a_max, j_max)
+        # Calculate total distance
+        d1 = self._integrate_dist_only(start_state.v, start_state.a, acc_shape)
+        d2 = self._integrate_dist_only(v_mid, a_mid, dec_shape)
         
-        # Calculate distances
-        d1 = self._integrate_dist(start_state.v, start_state.a, acc_segs)
-        d2 = self._integrate_dist(state_mid.v, state_mid.a, dec_segs)
-        
-        return (d1 + d2), acc_segs, dec_segs
+        return (d1 + d2), acc_shape, dec_shape
 
     def plan(self, start_state, target_p, target_v, v_max, a_max, j_max):
         """
-        Main planning interface.
-        Returns a list of Segment objects.
+        Planning Method: Position Control.
+        Calculates a trajectory to move from start_state to target_p with final velocity target_v.
         """
-        # Input validation guard
         if v_max <= 0 or a_max <= 0 or j_max <= 0:
-            return [] # Or raise Error
+            return []
 
-        # 'pre_segments' stores segments required to recover from invalid initial states
-        pre_segments = [] 
         current_state = start_state.copy()
+        final_trajectory = []
 
-        # ========================================================
-        # 1. Initial State Sanitization
-        # ========================================================
-        # If initial acceleration violates limits, reduce it first.
+        # --- 1. Acceleration Recovery ---
+        # If current acceleration exceeds limits, ramp it down to safe limits first.
         if current_state.a > a_max + S7RTT.EPS_VAL:
             t_recover = (current_state.a - a_max) / j_max
-            seg = Segment(-j_max, t_recover)
-            pre_segments.append(seg)
-            current_state = self.integrate_path(current_state, [seg])
-            # Force clamp to avoid float noise
-            current_state.a = a_max 
+            rec_state = current_state.copy()
+            rec_state.dt = t_recover
+            rec_state.j = -j_max
+            final_trajectory.append(rec_state)
+            
+            current_state = self._integrate_state(current_state, t_recover, -j_max)
+            current_state.a = a_max
             
         elif current_state.a < -a_max - S7RTT.EPS_VAL:
             t_recover = (-a_max - current_state.a) / j_max
-            seg = Segment(j_max, t_recover)
-            pre_segments.append(seg)
-            current_state = self.integrate_path(current_state, [seg])
-            current_state.a = -a_max 
+            rec_state = current_state.copy()
+            rec_state.dt = t_recover
+            rec_state.j = j_max
+            final_trajectory.append(rec_state)
+            
+            current_state = self._integrate_state(current_state, t_recover, j_max)
+            current_state.a = -a_max
 
         dist_req = target_p - current_state.p
 
-        # ========================================================
-        # 2. Compute Physical Boundaries
-        # ========================================================
-        
-        # Check Max Velocity (Positive limit)
-        d_upper, acc_segs_up, dec_segs_up = self._compute_trajectory_dist(
+        # --- 2. Boundary Check ---
+        # Calculate the distance traveled if we hit +V_max and -V_max respectively.
+        d_upper, acc_up, dec_up = self._compute_trajectory_dist(
             current_state, v_max, target_v, a_max, j_max)
             
-        # Check Min Velocity (Negative limit)
-        d_lower, acc_segs_lo, dec_segs_lo = self._compute_trajectory_dist(
+        d_lower, acc_lo, dec_lo = self._compute_trajectory_dist(
             current_state, -v_max, target_v, a_max, j_max)
 
-        plan_segments = []
+        shape_list = []
 
-        # ========================================================
-        # 3. Three-Branch Decision Logic
-        # ========================================================
-        
+        # --- 3. Logic Branching ---
         if dist_req > d_upper + S7RTT.EPS_DIST:
-            # Case 1: Positive Saturation (Need to cruise at +v_max)
+            # Distance is large: Accelerate to V_max, Cruise, then Decelerate.
             gap = dist_req - d_upper
             t_cruise = gap / v_max
             
-            plan_segments.extend(acc_segs_up)
+            shape_list.extend(acc_up)
             if t_cruise > S7RTT.EPS_TIME: 
-                plan_segments.append(Segment(0.0, t_cruise))
-            plan_segments.extend(dec_segs_up)
+                shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
+            shape_list.extend(dec_up)
             
         elif dist_req < d_lower - S7RTT.EPS_DIST:
-            # Case 2: Negative Saturation (Need to cruise at -v_max)
+            # Distance is large (negative): Accelerate to -V_max, Cruise, then Decelerate.
             gap = dist_req - d_lower
             t_cruise = gap / (-v_max)
             
-            plan_segments.extend(acc_segs_lo)
+            shape_list.extend(acc_lo)
             if t_cruise > S7RTT.EPS_TIME: 
-                plan_segments.append(Segment(0.0, t_cruise))
-            plan_segments.extend(dec_segs_lo)
+                shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
+            shape_list.extend(dec_lo)
             
         else:
-            # Case 3: Peak Search (Trajectory fits within limits)
-            # Define error function for the solver
+            # Distance is within bounds: No cruising phase at V_max is needed.
+            # Solve for the specific peak velocity that yields the exact distance.
             def get_error(v_p):
                 d, _, _ = self._compute_trajectory_dist(
                     current_state, v_p, target_v, a_max, j_max)
                 return d - dist_req
             
-            # Expand search range (2.0x) to robustly handle initial state overshoot
             max_abs_v = max(v_max, abs(current_state.v), abs(target_v)) * 2.0
-            
             best_v = Solver.solve_monotonic_brent(get_error, -max_abs_v, max_abs_v)
             
-            _, acc_segs_fin, dec_segs_fin = self._compute_trajectory_dist(
+            #best_v = Solver.solve_monotonic_brent(get_error, -v_max, v_max)
+            #if abs(best_v - current_state.v) < 0.1:
+            #    best_v = current_state.v
+            
+            _, acc_fin, dec_fin = self._compute_trajectory_dist(
                 current_state, best_v, target_v, a_max, j_max)
             
-            plan_segments.extend(acc_segs_fin)
-            plan_segments.extend(dec_segs_fin)
+            shape_list.extend(acc_fin)
+            shape_list.extend(dec_fin)
 
-        # Return combined list
-        return pre_segments + plan_segments
+        # --- 4. Stitching ---
+        # Convert relative shape segments into absolute trajectory points.
+        for shape in shape_list:
+            node = current_state.copy()
+            node.dt = shape.dt
+            node.j = shape.j
+            final_trajectory.append(node)
+            
+            current_state = self._integrate_state(current_state, shape.dt, shape.j)
+
+        return final_trajectory
+
+    def plan_velocity(self, start_state, target_v, v_max, a_max, j_max):
+        """
+        Planning Method: Velocity Control.
+        Reaches target_v as fast as possible without considering position.
+        """
+        if v_max <= 0 or a_max <= 0 or j_max <= 0:
+            return []
+
+        target_v = max(-v_max, min(v_max, target_v))
+        current_state = start_state.copy()
+        final_trajectory = []
+
+        # --- 1. Acceleration Recovery ---
+        if current_state.a > a_max + S7RTT.EPS_VAL:
+            t_recover = (current_state.a - a_max) / j_max
+            rec_state = current_state.copy()
+            rec_state.dt = t_recover
+            rec_state.j = -j_max
+            final_trajectory.append(rec_state)
+            
+            current_state = self._integrate_state(current_state, t_recover, -j_max)
+            current_state.a = a_max
+            
+        elif current_state.a < -a_max - S7RTT.EPS_VAL:
+            t_recover = (-a_max - current_state.a) / j_max
+            rec_state = current_state.copy()
+            rec_state.dt = t_recover
+            rec_state.j = j_max
+            final_trajectory.append(rec_state)
+            
+            current_state = self._integrate_state(current_state, t_recover, j_max)
+            current_state.a = -a_max
+
+        # --- 2. Build Profile ---
+        shape_list = self._build_profile(
+            current_state.v, 
+            current_state.a, 
+            target_v, 
+            a_max, 
+            j_max
+        )
+
+        # --- 3. Stitching ---
+        for shape in shape_list:
+            node = current_state.copy()
+            node.dt = shape.dt
+            node.j = shape.j
+            final_trajectory.append(node)
+            
+            current_state = self._integrate_state(current_state, shape.dt, shape.j)
+
+        return final_trajectory
+
+    def at_time(self, trajectory, dt):
+        """
+        Samples the trajectory at a specific time 'dt' from the start.
+        If dt exceeds trajectory duration, extrapolates with constant velocity.
+        """
+        if not trajectory:
+            return MotionState()
+
+        # Handle time before start (clamp to 0)
+        if dt <= 1e-12:
+            res = trajectory[0].copy()
+            res.dt = 0 
+            res.j = 0
+            return res
+
+        t_remaining = dt
+        
+        # Iterate segments to find the active one
+        for node in trajectory:
+            if t_remaining <= node.dt:
+                t = t_remaining
+                j = node.j
+                
+                p0, v0, a0 = node.p, node.v, node.a
+                
+                p = p0 + v0 * t + 0.5 * a0 * t**2 + (1.0/6.0) * j * t**3
+                v = v0 + a0 * t + 0.5 * j * t**2
+                a = a0 + j * t
+                
+                return MotionState(0.0, p, v, a, j)
+            
+            else:
+                t_remaining -= node.dt
+
+        # Handle Overshoot: Extrapolate from the last known state
+        last_node = trajectory[-1]
+        t = last_node.dt
+        j = last_node.j
+        
+        p_end = last_node.p + last_node.v * t + 0.5 * last_node.a * t**2 + (1.0/6.0) * j * t**3
+        v_end = last_node.v + last_node.a * t + 0.5 * j * t**2
+        
+        # Assume constant velocity after trajectory ends
+        p_final = p_end + v_end * t_remaining
+        
+        return MotionState(0.0, p_final, v_end, 0.0, 0.0)
