@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.3
+# Version:      V1.5
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -22,528 +22,481 @@
 
 import math
 
-class Solver:
-    """
-    Optimized Numerical Solver using Brent's Method.
-    """
-    
-    # Use system machine epsilon (typically around 2.22e-16) for better accuracy
-    EPS = 1e-16
-    TOL = 1e-12
-    MAX_ITER = 100
-
-    @staticmethod
-    def solve_brent(func, low, high):
-        """
-        Finds the root of 'func' in [low, high] using Brent's method.
-        
-        Returns:
-            The root x (or the closest approximation if not converged).
-        """
-        a = low
-        b = high
-        fa = func(a)
-        fb = func(b)
-
-        # Check if the root is bracketed.
-        # If fa and fb have the same sign, we cannot guarantee a root exists.
-        # In this case, return the endpoint closer to zero.
-        if (fa > 0 and fb > 0) or (fa < 0 and fb < 0):
-            return a if abs(fa) < abs(fb) else b
-
-        if fa == 0: return a
-        if fb == 0: return b
-
-        # Initialize variables
-        # c is the opposite end of the interval from b
-        c = a
-        fc = fa
-        d = e = b - a
-        
-        # mflag indicates if bisection is forced
-        mflag = True 
-        
-        tol_const = Solver.TOL
-        mach_eps = Solver.EPS
-
-        for _ in range(Solver.MAX_ITER):
-            # Ensure |f(b)| <= |f(c)| so that b is always the best guess
-            if abs(fc) < abs(fb):
-                a, b, c = b, c, b
-                fa, fb, fc = fb, fc, fb
-            
-            # Calculate tolerance
-            # tol1 combines relative machine precision and absolute tolerance
-            tol1 = 2.0 * mach_eps * abs(b) + 0.5 * tol_const
-            xm = 0.5 * (c - b)
-            
-            # Convergence test: interval is small enough or exact root found
-            if abs(xm) <= tol1 or fb == 0:
-                return b
-            
-            # Attempt interpolation if:
-            # 1. Previous step size |e| was larger than tolerance
-            # 2. Function value at 'a' is significantly different from 'b'
-            if abs(e) >= tol1 and abs(fa) > abs(fb):
-                s = fb / fa
-                
-                if a == c:
-                    # Linear interpolation (Secant Method)
-                    p = 2.0 * xm * s
-                    q = 1.0 - s
-                else:
-                    # Inverse Quadratic Interpolation (IQI)
-                    q = fa / fc
-                    r = fb / fc
-                    p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0))
-                    q = (q - 1.0) * (r - 1.0) * (s - 1.0)
-                
-                # Adjust signs of p and q ensuring p > 0
-                if p > 0:
-                    q = -q
-                p = abs(p)
-                
-                # Validate if interpolation result is acceptable:
-                # 1. Must fall strictly within (b, b + 3*xm)
-                # 2. Must converge faster than bisection (checked against min2)
-                min1 = 3.0 * xm * q - abs(tol1 * q)
-                min2 = abs(e * q)
-                
-                if 2.0 * p < min1:
-                    # Check convergence speed relative to previous step
-                    if mflag:
-                        # Previous step was bisection; require significant reduction
-                        if 2.0 * p < min2:
-                            e = d
-                            d = p / q
-                            mflag = False
-                        else:
-                            d = xm; e = d; mflag = True
-                    else:
-                        # Previous step was interpolation; check against d form step before last
-                        if 2.0 * p < abs(d * q):
-                            e = d
-                            d = p / q
-                            mflag = False
-                        else:
-                            d = xm; e = d; mflag = True
-                else:
-                    # Interpolation failed (out of bounds), fallback to bisection
-                    d = xm; e = d; mflag = True
-            else:
-                # Step too small or function too flat -> force bisection
-                d = xm; e = d; mflag = True
-
-            # Apply the computed step
-            a = b; fa = fb  # Store previous b as a (for the next bracket)
-            
-            if abs(d) > tol1:
-                b += d
-            else:
-                # If step is too small, force a tiny step to avoid stagnation
-                b += math.copysign(tol1, xm)
-                
-            fb = func(b)
-            
-            # Maintain bracket [b, c] such that f(b) and f(c) have opposite signs.
-            # If f(b) and f(c) share the same sign, the root is no longer between them.
-            # Reset c to a (the previous b).
-            if (fb > 0 and fc > 0) or (fb < 0 and fc < 0):
-                c = a
-                fc = fa
-                d = e = b - a # Reset step size
-                mflag = True
-
-        # If max iterations reached, return the best guess b
-        return b
-
-
 class MotionState:
     """
-    Represents the kinematic state at a specific node in the trajectory.
-    Includes position (p), velocity (v), acceleration (a), jerk (j),
-    and the duration (dt) to maintain this jerk.
+    Represents a kinematic state at a specific point in time.
+    Contains delta time, position, velocity, acceleration, and jerk.
     """
+    __slots__ = ('dt', 'p', 'v', 'a', 'j')
+
     def __init__(self, dt=0.0, p=0.0, v=0.0, a=0.0, j=0.0):
-        self.dt = float(dt) if dt > 0.0 else 0.0
+        self.dt = float(dt)
         self.p = float(p)
         self.v = float(v)
         self.a = float(a)
         self.j = float(j)
 
     def copy(self):
+        """Creates a deep copy of the current state."""
         return MotionState(self.dt, self.p, self.v, self.a, self.j)
 
     def __repr__(self):
-        return "State(dt=%.4f, P=%.3f, V=%.3f, A=%.3f, J=%.2f)" % \
-               (self.dt, self.p, self.v, self.a, self.j)
+        return (f"State(dt={self.dt:.9f}, p={self.p:.4f}, "
+                f"v={self.v:.4f}, a={self.a:.4f}, j={self.j:.1f})")
 
 
 class S7RTT:
     """
-    S-Curve (7-Segment) Trajectory Planner.
-    Generates jerk-limited motion profiles (S-curves) for position and velocity control.
+    S-Curve Trajectory Planner (Double S-Velocity Profile).
+    Calculates time-optimal or continuous trajectories with jerk constraints.
     """
     
-    EPS_TIME = 1e-9
-    EPS_VAL  = 1e-6
-    EPS_DIST = 1e-5
+    # --- Numerical Tolerances ---
+    EPS_TIME = 1e-9     # Minimum significant time duration
+    EPS_DIST = 1e-8     # Position tolerance
+    EPS_VEL  = 1e-7     # Velocity tolerance
+    EPS_ACC  = 1e-6     # Acceleration tolerance
+    MATH_EPS = 1e-9     # General epsilon
+    EPS_SOLVER = 1e-3   # Solver tolerance
+    SOLVER_ITER = 30    # Max iterations for Brent's method
+    SOLVER_TOL  = 1e-8  # Solver precision
 
     def __init__(self):
         pass
 
-    def _integrate_state(self, state, dt, j):
-        """
-        Calculates the next state after applying constant jerk 'j' for duration 'dt'.
-        """
-        p = state.p + state.v * dt + 0.5 * state.a * dt**2 + (1.0/6.0) * j * dt**3
-        v = state.v + state.a * dt + 0.5 * j * dt**2
-        a = state.a + j * dt
-        return MotionState(0.0, p, v, a, 0.0)
+    # ==========================================================================
+    # 1. Core Discrete Integrator
+    # ==========================================================================
 
-    def _integrate_dist_only(self, v0, a0, state_list):
+    def _integrate_step(self, s, dt, j):
         """
-        Lightweight integration used by the solver to calculate total displacement
-        without the overhead of creating new MotionState objects.
+        Integrates the kinematic state forward by 'dt' with constant jerk 'j'.
+        Returns a new MotionState object representing the end state.
         """
-        dist = 0.0
-        v = v0
-        a = a0
-        for s in state_list:
-            t = s.dt
-            j = s.j
-            dist += v * t + 0.5 * a * t**2 + (1.0/6.0) * j * t**3
-            v += a * t + 0.5 * j * t**2
-            a += j * t
-        return dist
+        if dt <= 0.0: 
+            return s.copy()
+        
+        dt2 = dt * dt
+        dt3 = dt2 * dt
+        
+        p = s.p + s.v * dt + 0.5 * s.a * dt2 + (1.0/6.0) * j * dt3
+        v = s.v + s.a * dt + 0.5 * j * dt2
+        a = s.a + j * dt
+        
+        return MotionState(0.0, p, v, a, j)
 
-    def _build_profile(self, v_start, a_start, v_target, a_max, j_max):
+    def _simulate_profile(self, start_s, shapes):
         """
-        Generates the velocity change profile (acceleration or deceleration phase).
-        Returns a list of segments (ramp up jerk, constant acc, ramp down jerk).
-        Handles both Trapezoidal acceleration (reaching a_max) and Triangular acceleration.
+        Simulates a sequence of (dt, jerk) segments starting from 'start_s'.
+        Returns (final_state, list_of_node_states).
         """
-        shape_states = []
+        curr = start_s.copy()
+        node_states = []
         
-        # 1. Clamp start acceleration to limits for safety
-        acc_clamped = a_start
-        if acc_clamped > a_max: acc_clamped = a_max
-        if acc_clamped < -a_max: acc_clamped = -a_max
+        for dt, j in shapes:
+            if dt < self.EPS_TIME: 
+                continue
+            
+            seg_start = curr.copy()
+            seg_start.dt = dt
+            seg_start.j = j
+            node_states.append(seg_start)
+            
+            curr = self._integrate_step(curr, dt, j)
+            
+        return curr, node_states
+
+    def _integrate_saturated(self, s, t, j_apply, a_max):
+        """
+        Integrates state 's' for time 't' using jerk 'j_apply', clamping accel at a_max.
+        Used primarily for time-optimal calculations.
+        """
+        limit_a = a_max if j_apply > 0 else -a_max
+        dist_to_lim = limit_a - s.a
         
-        # 2. Calculate velocity reached if we immediately reduce acceleration to zero
-        t_to_zero = abs(acc_clamped) / j_max
-        j_to_zero = -j_max if acc_clamped > 0 else j_max
-        dv_base = acc_clamped * t_to_zero + 0.5 * j_to_zero * t_to_zero**2
-        v_base = v_start + dv_base
+        if abs(j_apply) < self.MATH_EPS:
+            t_ramp = float('inf')
+        else:
+            # Check if we are moving towards the limit
+            is_same_dir = (j_apply > 0 and dist_to_lim > -self.MATH_EPS) or \
+                          (j_apply < 0 and dist_to_lim < self.MATH_EPS)
+            t_ramp = dist_to_lim / j_apply if is_same_dir else 0.0
+            
+        segments = []
+        curr = s.copy()
         
-        # 3. Determine direction of the required profile
+        if t <= t_ramp:
+            if t > self.EPS_TIME:
+                curr = self._integrate_step(curr, t, j_apply)
+                segments.append([t, j_apply])
+        else:
+            if t_ramp > self.EPS_TIME:
+                curr = self._integrate_step(curr, t_ramp, j_apply)
+                segments.append([t_ramp, j_apply])
+                
+            t_hold = t - t_ramp
+            if t_hold > self.EPS_TIME:
+                curr.a = limit_a
+                curr = self._integrate_step(curr, t_hold, 0.0)
+                segments.append([t_hold, 0.0])
+                
+        return curr, segments
+
+    # ==========================================================================
+    # 2. Profile Math & Solvers
+    # ==========================================================================
+
+    def _calc_vel_change_times(self, v0, a0, v1, a_max, j_max):
+        _a0 = max(-a_max, min(a_max, a0))
+        
+        t_to_zero = abs(_a0) / j_max
+        j_restore = -math.copysign(j_max, _a0) if abs(_a0) > self.MATH_EPS else 0.0
+        v_min_feasible = v0 + _a0 * t_to_zero + 0.5 * j_restore * t_to_zero**2
+        
         direction = 1.0
-        if v_target < v_base:
+        if v1 < v_min_feasible - self.MATH_EPS: 
             direction = -1.0
             
-        if direction > 0:
-            j_up, j_down = j_max, -j_max
-        else:
-            j_up, j_down = -j_max, j_max
-            
-        # 4. Calculate constraints and thresholds
-        v_req_total = v_target - v_start
-        a_limit = a_max * direction
+        _v0 = v0 * direction
+        _a0 = _a0 * direction
+        _v1 = v1 * direction
         
-        # Time required to ramp from current acceleration to limit, and limit to zero
-        t1_max = (a_limit - acc_clamped) / j_up
-        t3_max = abs(a_limit) / j_max
+        t1, t2, t3 = 0.0, 0.0, 0.0
         
-        # Velocity change provided by a full trapezoidal profile without the constant acceleration phase
-        dv_trapezoid = (acc_clamped * t1_max + 0.5 * j_up * t1_max**2) + \
-                       (a_limit * t3_max + 0.5 * j_down * t3_max**2)
+        t1_max = max(0.0, (a_max - _a0) / j_max)
+        t3_max = a_max / j_max
         
-        # 5. Determine if we need a flat acceleration phase (Trapezoidal)
-        needs_flat = False
-        if direction > 0:
-            if v_req_total > dv_trapezoid: needs_flat = True
+        dv_inflection = (_a0 * t1_max + 0.5 * j_max * t1_max**2) + \
+                        (a_max * t3_max - 0.5 * j_max * t3_max**2)
+        dv_req = _v1 - _v0
+        
+        if dv_req > dv_inflection:
+            dv_missing = dv_req - dv_inflection
+            t2 = dv_missing / a_max
+            t1 = t1_max
+            t3 = t3_max
         else:
-            if v_req_total < dv_trapezoid: needs_flat = True
-            
-        if needs_flat:
-            # Trapezoidal Profile (reaches max acceleration)
-            v_missing = v_req_total - dv_trapezoid
-            t_flat = v_missing / a_limit
-            
-            if t1_max > S7RTT.EPS_TIME: 
-                shape_states.append(MotionState(t1_max, 0,0,0, j_up))
-            if t_flat > S7RTT.EPS_TIME: 
-                shape_states.append(MotionState(t_flat, 0,0,0, 0.0))
-            if t3_max > S7RTT.EPS_TIME: 
-                shape_states.append(MotionState(t3_max, 0,0,0, j_down))
-        else:
-            # Triangular Profile (does not reach max acceleration)
-            term = v_req_total * j_up + 0.5 * acc_clamped**2
+            term = j_max * dv_req + 0.5 * _a0**2
             if term < 0: term = 0.0
-            a_peak_mag = math.sqrt(term)
-            a_peak = a_peak_mag if direction > 0 else -a_peak_mag
-                
-            t1 = (a_peak - acc_clamped) / j_up
-            t3 = (0.0 - a_peak) / j_down
+            a_peak = math.sqrt(term)
+            t1 = max(0.0, (a_peak - _a0) / j_max)
+            t3 = max(0.0, a_peak / j_max)
             
-            if t1 > S7RTT.EPS_TIME: 
-                shape_states.append(MotionState(t1, 0,0,0, j_up))
-            if t3 > S7RTT.EPS_TIME: 
-                shape_states.append(MotionState(t3, 0,0,0, j_down))
-            
-        return shape_states
+        return t1, t2, t3, direction
 
-    def _compute_trajectory_dist(self, start_state, v_peak, target_v, a_max, j_max):
-        """
-        Simulates a full trajectory: Accelerate to v_peak, then Decelerate to target_v.
-        Returns the total distance traveled and the shape segments.
-        """
-        # Phase 1: Start -> Peak Velocity
-        acc_shape = self._build_profile(start_state.v, start_state.a, v_peak, a_max, j_max)
+    def _build_vel_profile(self, curr, v_target, a_max, j_max):
+        t1, t2, t3, direction = self._calc_vel_change_times(curr.v, curr.a, v_target, a_max, j_max)
+        nodes = []
+        if t1 > self.EPS_TIME: nodes.append([t1, direction * j_max])
+        if t2 > self.EPS_TIME: nodes.append([t2, 0.0])
+        if t3 > self.EPS_TIME: nodes.append([t3, -direction * j_max])
+        return nodes
+
+    def _solve_brent(self, func, lower, upper):
+        a, b = lower, upper
+        fa, fb = func(a), func(b)
+        if abs(fa) < abs(fb): 
+            a, b, fa, fb = b, a, fb, fa
         
-        # Integrate to find state at peak velocity
-        v_mid = start_state.v
-        a_mid = start_state.a
-        for s in acc_shape:
-            v_mid += a_mid * s.dt + 0.5 * s.j * s.dt**2
-            a_mid += s.j * s.dt
+        c, fc, d, e = a, fa, b - a, b - a
+        
+        for _ in range(self.SOLVER_ITER):
+            if abs(fc) < abs(fb):
+                a, b, c = b, c, b
+                fa, fb, fc = fb, fc, fb
             
-        # Phase 2: Peak Velocity -> Target Velocity
-        dec_shape = self._build_profile(v_mid, a_mid, target_v, a_max, j_max)
+            xm = 0.5 * (c - b)
+            
+            if abs(xm) < self.SOLVER_TOL or fb == 0: 
+                return b
+            
+            if abs(e) >= self.SOLVER_TOL and abs(fa) > abs(fb):
+                s = fb / fa
+                if a == c: 
+                    p = 2.0 * xm * s; q = 1.0 - s
+                else: 
+                    q = fa / fc; r = fb / fc
+                    p = s * (2.0 * xm * q * (q - r) - (b - a) * (r - 1.0))
+                    q = (q - 1.0) * (r - 1.0) * (s - 1.0)
+                
+                if p > 0: q = -q
+                p = abs(p)
+                
+                if 2.0 * p < min(3.0 * xm * q - abs(self.SOLVER_TOL * q), abs(e * q)): 
+                    e = d; d = p / q
+                else: 
+                    d = xm; e = d
+            else: 
+                d = xm; e = d
+            
+            a = b; fa = fb
+            if abs(d) > self.SOLVER_TOL: 
+                b += d
+            else: 
+                b += math.copysign(self.SOLVER_TOL, xm)
+            fb = func(b)
+            
+            if (fb > 0 and fc > 0) or (fb < 0 and fc < 0): 
+                c = a; fc = fa; d = e = b - a
+        return b
+
+    def _solve_via_bisection(self, curr, target_p, target_v, v_max, a_max, j_max):
+        """
+        Finds the optimal intermediate velocity to reach target_p using bisection.
+        """
+        def get_error(v_mid):
+            shapes_1 = self._build_vel_profile(curr, v_mid, a_max, j_max)
+            s_mid, _ = self._simulate_profile(curr, shapes_1)
+            shapes_2 = self._build_vel_profile(s_mid, target_v, a_max, j_max)
+            s_end, _ = self._simulate_profile(s_mid, shapes_2)
+            return s_end.p - target_p
+
+        low, high = -v_max, v_max
+        if get_error(low) > 0: return -v_max
+        if get_error(high) < 0: return v_max
         
-        # Calculate total distance
-        d1 = self._integrate_dist_only(start_state.v, start_state.a, acc_shape)
-        d2 = self._integrate_dist_only(v_mid, a_mid, dec_shape)
+        return self._solve_brent(get_error, low, high)
+
+    def _calc_max_reach(self, curr, v_limit, target_v, a_max, j_max):
+        shapes_1 = self._build_vel_profile(curr, v_limit, a_max, j_max)
+        s_peak, _ = self._simulate_profile(curr, shapes_1)
+        shapes_2 = self._build_vel_profile(s_peak, target_v, a_max, j_max)
+        s_end, _ = self._simulate_profile(s_peak, shapes_2)
+        return s_end.p - curr.p
+
+    # ==========================================================================
+    # 3. Trajectory Planning Sub-routines
+    # ==========================================================================
+
+    def _handle_safety_decel(self, curr, a_max, j_max):
+        """
+        Generates a deceleration segment if the initial acceleration exceeds limits.
+        Returns (list_of_nodes, updated_current_state).
+        """
+        nodes = []
+        if abs(curr.a) > a_max + self.EPS_ACC:
+            j_rec = -math.copysign(j_max, curr.a)
+            tgt_a = math.copysign(a_max, curr.a)
+            t_rec = (curr.a - tgt_a) / (-j_rec) if abs(j_rec) > 0 else 0
+            
+            if t_rec > self.EPS_TIME:
+                n = curr.copy(); n.dt = t_rec; n.j = j_rec
+                nodes.append(n)
+                curr = self._integrate_step(curr, t_rec, j_rec)
+                curr.a = tgt_a # Force precise value
         
-        return (d1 + d2), acc_shape, dec_shape
+        return nodes, curr
+
+    def _try_time_optimal_plan(self, curr, target_p, target_v, a_max, j_max, v_max):
+        """
+        Attempts to find a time-optimal trajectory using Brent's method on time.
+        Returns (nodes, final_state) if successful, else (None, None).
+        """
+        t_est = (abs(curr.v) + v_max) / a_max if a_max > 0 else 1.0
+        t_search_max = t_est * 3.0 + 5.0
+        
+        # Determine direction
+        stop_shapes = self._build_vel_profile(curr, target_v, a_max, j_max)
+        s_stop, _ = self._simulate_profile(curr, stop_shapes)
+        
+        is_pos_move = (curr.v > self.EPS_VEL)
+        if abs(curr.v) <= self.EPS_VEL: 
+            is_pos_move = (target_p > curr.p) 
+        
+        gap = target_p - s_stop.p
+        if is_pos_move:
+            j_action = -j_max if gap < -self.EPS_DIST else j_max
+        else:
+            j_action = j_max if gap > self.EPS_DIST else -j_max
+        
+        def error_func(t):
+            if t < 0: t = 0
+            s1, _ = self._integrate_saturated(curr, t, j_action, a_max)
+            shapes_rem = self._build_vel_profile(s1, target_v, a_max, j_max)
+            s_final, _ = self._simulate_profile(s1, shapes_rem)
+            return s_final.p - target_p
+
+        if error_func(0.0) * error_func(t_search_max) > 0: 
+            return None, None
+        
+        best_t = self._solve_brent(error_func, 0.0, t_search_max)
+        
+        if abs(error_func(best_t)) > self.EPS_SOLVER: 
+            return None, None
+            
+        nodes = []
+        s_switch, switch_nodes = self._integrate_saturated(curr, best_t, j_action, a_max)
+        
+        for t_seg, j_seg in switch_nodes:
+            if t_seg < self.EPS_TIME: continue
+            n = curr.copy(); n.dt = t_seg; n.j = j_seg
+            nodes.append(n)
+            curr = self._integrate_step(curr, t_seg, j_seg)
+            
+        shapes_rem = self._build_vel_profile(curr, target_v, a_max, j_max)
+        _, rem_nodes = self._simulate_profile(curr, shapes_rem)
+        nodes.extend(rem_nodes)
+        
+        return nodes, curr
+
+    def _plan_fallback_cruise(self, curr, target_p, target_v, v_max, a_max, j_max):
+        """
+        Fallback strategy:
+        1. Solve for ideal peak velocity using bisection.
+        2. Cruise if there is a spatial gap.
+        3. Decelerate to target.
+        """
+        nodes = []
+        
+        # 1. Reach optimal intermediate velocity
+        best_v = self._solve_via_bisection(curr, target_p, target_v, v_max, a_max, j_max)
+        shapes_a = self._build_vel_profile(curr, best_v, a_max, j_max)
+        curr, nodes_a = self._simulate_profile(curr, shapes_a)
+        nodes.extend(nodes_a)
+        
+        # Force acceleration to zero for pure cruise calculation
+        curr.a = 0.0
+        
+        # 2. Calculate gap and add cruise segment if needed
+        # Simulate deceleration to see where we land
+        s_dec_sim, _ = self._simulate_profile(curr, self._build_vel_profile(curr, target_v, a_max, j_max))
+        dist_gap = target_p - s_dec_sim.p
+        
+        effective_v = curr.v
+        if abs(effective_v) < self.MATH_EPS:
+            effective_v = self.MATH_EPS * math.copysign(1, dist_gap)
+        
+        if abs(dist_gap) > self.EPS_DIST: 
+             cruise_time = dist_gap / effective_v
+             if cruise_time > self.EPS_TIME:
+                 n = curr.copy(); n.dt = cruise_time; n.j = 0.0
+                 nodes.append(n)
+                 curr = self._integrate_step(curr, cruise_time, 0.0)
+
+        # 3. Decelerate to final velocity
+        shapes_b = self._build_vel_profile(curr, target_v, a_max, j_max)
+        curr, nodes_b = self._simulate_profile(curr, shapes_b)
+        nodes.extend(nodes_b)
+        
+        return nodes
+
+    def _refine_trajectory_precision(self, nodes, start_state, target_p):
+        """
+        Simulates the generated nodes to verify the final position.
+        If a position error exists (> 1e-8) and a cruise segment is available,
+        adjusts the cruise duration and propagates the correction to subsequent nodes.
+        
+        Optimized to avoid repetitive manual integration loops.
+        """
+        if not nodes:
+            return
+
+        # --- Phase 1: Simulation and Identification ---
+        sim_s = start_state.copy()
+        correction_idx = -1
+        max_cruise_dt = -1.0
+        
+        # We simulate strictly using the integrator to capture accumulated floating point errors
+        for i, node in enumerate(nodes):
+            # Check if this node is a valid cruise candidate (a=0, j=0)
+            # Note: node.a/j describes the state at the START of the segment
+            if abs(node.j) < self.MATH_EPS and abs(node.a) < self.EPS_ACC:
+                if node.dt > max_cruise_dt:
+                    max_cruise_dt = node.dt
+                    correction_idx = i
+            
+            # Advance simulation state
+            sim_s = self._integrate_step(sim_s, node.dt, node.j)
+
+        pos_error = target_p - sim_s.p
+
+        # --- Phase 2: Correction and Propagation ---
+        if abs(pos_error) > self.EPS_DIST and correction_idx != -1:
+            v_cruise = nodes[correction_idx].v
+            
+            if abs(v_cruise) > self.EPS_VEL:
+                dt_fix = pos_error / v_cruise
+                new_dt = nodes[correction_idx].dt + dt_fix
+                
+                if new_dt < self.EPS_TIME:
+                    new_dt = self.EPS_TIME
+                
+                # Apply time correction
+                nodes[correction_idx].dt = new_dt
+                
+                # Propagate changes:
+                # We must re-calculate the start state (p, v, a) for all nodes 
+                # AFTER the modified one to ensure continuity.
+                
+                # 1. Get the state *after* the modified cruise segment
+                #    We need the state at the start of the cruise segment to integrate forward
+                curr_s = start_state.copy()
+                for k in range(correction_idx):
+                    curr_s = self._integrate_step(curr_s, nodes[k].dt, nodes[k].j)
+                
+                # Now integrate the modified cruise segment
+                curr_s = self._integrate_step(curr_s, nodes[correction_idx].dt, nodes[correction_idx].j)
+                
+                # 2. Update subsequent nodes
+                for k in range(correction_idx + 1, len(nodes)):
+                    # Update the node's start state properties
+                    nodes[k].p = curr_s.p
+                    nodes[k].v = curr_s.v
+                    nodes[k].a = curr_s.a
+                    
+                    # Integrate to find the start state for the next node
+                    curr_s = self._integrate_step(curr_s, nodes[k].dt, nodes[k].j)
+
+    # ==========================================================================
+    # 4. Main Entry Point
+    # ==========================================================================
 
     def plan(self, start_state, target_p, target_v, v_max, a_max, j_max):
-        """
-        Planning Method: Position Control.
-        Optimized with caching to reduce redundant computations.
-        """
-        # 1. Input Validation
-        if v_max <= 0 or a_max <= 0 or j_max <= 0:
-            return []
-
-        current_state = start_state.copy()
-        final_trajectory = []
-
-        # 2. Acceleration Recovery (Safety)
-        if current_state.a > a_max + S7RTT.EPS_VAL:
-            t_recover = (current_state.a - a_max) / j_max
-            rec_state = current_state.copy()
-            rec_state.dt = t_recover
-            rec_state.j = -j_max
-            final_trajectory.append(rec_state)
-            current_state = self._integrate_state(current_state, t_recover, -j_max)
-            current_state.a = a_max
-        elif current_state.a < -a_max - S7RTT.EPS_VAL:
-            t_recover = (-a_max - current_state.a) / j_max
-            rec_state = current_state.copy()
-            rec_state.dt = t_recover
-            rec_state.j = j_max
-            final_trajectory.append(rec_state)
-            current_state = self._integrate_state(current_state, t_recover, j_max)
-            current_state.a = -a_max
-
-        dist_req = target_p - current_state.p
+        if v_max <= 0 or a_max <= 0 or j_max <= 0: return []
         
-        # 3. Inertial Reference (Used for logic direction)
-        t_to_zero = abs(current_state.a) / j_max
-        j_to_zero = -j_max if current_state.a > 0 else j_max
-        v_inertial = current_state.v + current_state.a * t_to_zero + 0.5 * j_to_zero * t_to_zero**2
-
-        # 4. Pre-check: Direct Profile (Fast Path)
-        direct_shape = self._build_profile(current_state.v, current_state.a, target_v, a_max, j_max)
-        d_direct = self._integrate_dist_only(current_state.v, current_state.a, direct_shape)
+        final_nodes = []
+        curr = start_state.copy()
         
-        if abs(d_direct - dist_req) <= S7RTT.EPS_DIST:
-            shape_list = direct_shape
-            
+        # 1. Safety Deceleration
+        #    Handle cases where initial acceleration is already violating limits
+        decel_nodes, curr = self._handle_safety_decel(curr, a_max, j_max)
+        final_nodes.extend(decel_nodes)
+
+        # 2. Capacity Check
+        #    Determine if we can reach the target using max profiles or if we need optimal time solving
+        dist_req = target_p - curr.p
+        d_pos_limit = self._calc_max_reach(curr, v_max, target_v, a_max, j_max)
+        d_neg_limit = self._calc_max_reach(curr, -v_max, target_v, a_max, j_max)
+        
+        use_optimal_solver = True
+        if dist_req > d_pos_limit + self.EPS_DIST: use_optimal_solver = False
+        if dist_req < d_neg_limit - self.EPS_DIST: use_optimal_solver = False
+        
+        # 3. Execution Strategy
+        opt_nodes = None
+        if use_optimal_solver:
+            opt_nodes, _ = self._try_time_optimal_plan(curr, target_p, target_v, a_max, j_max, v_max)
+        
+        if opt_nodes is not None:
+            final_nodes.extend(opt_nodes)
         else:
-            # 5. Boundary Calculation
-            d_upper, acc_up, dec_up = self._compute_trajectory_dist(
-                current_state, v_max, target_v, a_max, j_max)
-            d_lower, acc_lo, dec_lo = self._compute_trajectory_dist(
-                current_state, -v_max, target_v, a_max, j_max)
+            # Fallback: Bisection solve for velocity + Cruise segment
+            fallback_nodes = self._plan_fallback_cruise(curr, target_p, target_v, v_max, a_max, j_max)
+            final_nodes.extend(fallback_nodes)
 
-            shape_list = []
+        # 4. Precision Refinement
+        #    Fix small floating point errors by adjusting cruise segments if available
+        self._refine_trajectory_precision(final_nodes, start_state, target_p)
 
-            if dist_req > d_upper + S7RTT.EPS_DIST:
-                # Target beyond positive limit
-                gap = dist_req - d_upper
-                t_cruise = gap / v_max
-                shape_list.extend(acc_up)
-                if t_cruise > S7RTT.EPS_TIME: 
-                    shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
-                shape_list.extend(dec_up)
-                
-            elif dist_req < d_lower - S7RTT.EPS_DIST:
-                # Target beyond negative limit
-                gap = dist_req - d_lower
-                t_cruise = gap / (-v_max)
-                shape_list.extend(acc_lo)
-                if t_cruise > S7RTT.EPS_TIME: 
-                    shape_list.append(MotionState(t_cruise, 0,0,0, 0.0))
-                shape_list.extend(dec_lo)
-                
-            else:
-                # Case: Within Bounds (Solver Required)
-                d_inertial, acc_inertial, dec_inertial = self._compute_trajectory_dist(
-                    current_state, v_inertial, target_v, a_max, j_max)
-                
-                # Strategy A: Inertial Snapping (Deadband)
-                if abs(d_inertial - dist_req) <= S7RTT.EPS_DIST:
-                    shape_list.extend(acc_inertial)
-                    shape_list.extend(dec_inertial)
-                    
-                else:
-                    # Strategy B: Buffered Directional Search
-                    def get_error(v_p):
-                        d, _, _ = self._compute_trajectory_dist(
-                            current_state, v_p, target_v, a_max, j_max)
-                        return d - dist_req
+        return final_nodes
 
-                    limit_safe = max(v_max, abs(current_state.v), abs(target_v)) * 1.5 + 10.0
-                    overlap_v = S7RTT.EPS_VAL * 10.0 
-
-                    if dist_req > d_inertial:
-                        s_low = v_inertial - overlap_v
-                        s_high = limit_safe
-                    else:
-                        s_high = v_inertial + overlap_v
-                        s_low = -limit_safe
-                    
-                    if s_low >= s_high: s_low = s_high - S7RTT.EPS_VAL
-
-                    best_v = Solver.solve_brent(get_error, s_low, s_high)
-                    
-                    # Strategy C: Fallback Mechanism
-                    hit_low = abs(best_v - s_low) < S7RTT.EPS_VAL
-                    hit_high = abs(best_v - s_high) < S7RTT.EPS_VAL
-                    
-                    if hit_low or hit_high:
-                        best_v = Solver.solve_brent(get_error, -limit_safe, limit_safe)
-
-                    # Post-Process: Micro-noise filtering
-                    # If result implies v_inertial, use the cached shapes to save calculation
-                    if abs(best_v - v_inertial) < S7RTT.EPS_VAL:
-                        shape_list.extend(acc_inertial)
-                        shape_list.extend(dec_inertial)
-                    else:
-                        # Only recalculate if we actually deviated from v_inertial
-                        _, acc_fin, dec_fin = self._compute_trajectory_dist(
-                            current_state, best_v, target_v, a_max, j_max)
-                        shape_list.extend(acc_fin)
-                        shape_list.extend(dec_fin)
-
-        # 6. Stitching
-        for shape in shape_list:
-            node = current_state.copy()
-            node.dt = shape.dt
-            node.j = shape.j
-            final_trajectory.append(node)
-            current_state = self._integrate_state(current_state, shape.dt, shape.j)
-
-        return final_trajectory
-
-    def plan_velocity(self, start_state, target_v, v_max, a_max, j_max):
-        """
-        Planning Method: Velocity Control.
-        Reaches target_v as fast as possible without considering position.
-        """
-        if v_max <= 0 or a_max <= 0 or j_max <= 0:
-            return []
-
-        target_v = max(-v_max, min(v_max, target_v))
-        current_state = start_state.copy()
-        final_trajectory = []
-
-        # --- 1. Acceleration Recovery ---
-        if current_state.a > a_max + S7RTT.EPS_VAL:
-            t_recover = (current_state.a - a_max) / j_max
-            rec_state = current_state.copy()
-            rec_state.dt = t_recover
-            rec_state.j = -j_max
-            final_trajectory.append(rec_state)
-            
-            current_state = self._integrate_state(current_state, t_recover, -j_max)
-            current_state.a = a_max
-            
-        elif current_state.a < -a_max - S7RTT.EPS_VAL:
-            t_recover = (-a_max - current_state.a) / j_max
-            rec_state = current_state.copy()
-            rec_state.dt = t_recover
-            rec_state.j = j_max
-            final_trajectory.append(rec_state)
-            
-            current_state = self._integrate_state(current_state, t_recover, j_max)
-            current_state.a = -a_max
-
-        # --- 2. Build Profile ---
-        shape_list = self._build_profile(
-            current_state.v, 
-            current_state.a, 
-            target_v, 
-            a_max, 
-            j_max
-        )
-
-        # --- 3. Stitching ---
-        for shape in shape_list:
-            node = current_state.copy()
-            node.dt = shape.dt
-            node.j = shape.j
-            final_trajectory.append(node)
-            
-            current_state = self._integrate_state(current_state, shape.dt, shape.j)
-
-        return final_trajectory
-
-    def at_time(self, trajectory, dt):
-        """
-        Samples the trajectory at a specific time 'dt' from the start.
-        If dt exceeds trajectory duration, extrapolates with constant velocity.
-        """
-        if not trajectory:
-            return MotionState()
-
-        # Handle time before start (clamp to 0)
-        if dt <= 1e-12:
-            res = trajectory[0].copy()
-            res.dt = 0 
-            res.j = 0
-            return res
-
-        t_remaining = dt
-        
-        # Iterate segments to find the active one
+    def at_time(self, trajectory, t):
+        if not trajectory: return MotionState()
+        elapsed = 0.0
         for node in trajectory:
-            if t_remaining <= node.dt:
-                t = t_remaining
-                j = node.j
-                
-                p0, v0, a0 = node.p, node.v, node.a
-                
-                p = p0 + v0 * t + 0.5 * a0 * t**2 + (1.0/6.0) * j * t**3
-                v = v0 + a0 * t + 0.5 * j * t**2
-                a = a0 + j * t
-                
-                return MotionState(0.0, p, v, a, j)
-            
-            else:
-                t_remaining -= node.dt
-
-        # Handle Overshoot: Extrapolate from the last known state
-        last_node = trajectory[-1]
-        t = last_node.dt
-        j = last_node.j
-        
-        p_end = last_node.p + last_node.v * t + 0.5 * last_node.a * t**2 + (1.0/6.0) * j * t**3
-        v_end = last_node.v + last_node.a * t + 0.5 * j * t**2
-        
-        # Assume constant velocity after trajectory ends
-        p_final = p_end + v_end * t_remaining
-        
-        return MotionState(0.0, p_final, v_end, 0.0, 0.0)
+            if t <= elapsed + node.dt: 
+                return self._integrate_step(node, t - elapsed, node.j)
+            elapsed += node.dt
+        last = trajectory[-1]
+        final_state = self._integrate_step(last, last.dt, last.j)
+        return self._integrate_step(final_state, t - elapsed, 0.0)
