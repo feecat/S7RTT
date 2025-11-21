@@ -29,6 +29,27 @@ S7RTT is not intended to replace Ruckig for multi-DOF or complex non-zero target
 ![](doc/img/Compare_Complex.png)
     *   Ruckig currently maintains an edge in robustness regarding specific complex mathematical boundary singularities.  
 ![](doc/img/Compare_Boundary.png)
+    *   However, in random number tests, Ruckig's robustness and the number of optimal solutions are far inferior to S7RTT.
+```
+################################################################################
+FINAL STATISTICS (With Simulation Verification)
+################################################################################
+Total Tests         : 10000
+----------------------------------------
+S7RTT Failures:
+  - Plan Crash/Empty: 0
+  - Accuracy check  : 0
+----------------------------------------
+Ruckig Failures:
+  - Plan Error      : 779
+  - Accuracy check  : 0
+----------------------------------------
+Comparisons:
+  - S7 Faster       : 708 (Optimizations)
+  - Mismatches      : 4 (S7 Slower/Failed)
+################################################################################
+```
+   
 
 ## ⚡ Performance
 
@@ -47,5 +68,6 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
 
 
