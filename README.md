@@ -12,13 +12,13 @@ S7RTT provides a robust solution for time-optimal trajectory generation with the
 
 *   **Arbitrary Initial State:** Calculate trajectories starting from any position, velocity, and acceleration.
 *   **Target State Control:** Reach any desired target position and velocity.
-    *   *Note: The target acceleration is fixed at `0` and cannot be modified in the current version.*
+    *   *Note: The target acceleration is fixed at `0` and cannot be modified.*
 *   **Full Jerk Constraints:** Implements complete jerk limitation to ensure smooth, third-order continuous motion, reducing mechanical stress.
 *   **Real-Time Interruption:** Supports "online" trajectory generation. You can interrupt the motion at any time with new target parameters, and the library will calculate a smooth transition from the current kinematic state.
 
 ## ⚖️ Comparison with Ruckig
 
-S7RTT is not intended to replace Ruckig for multi-DOF or complex non-zero target acceleration cases, but it offers distinct advantages in specific single-axis scenarios:
+S7RTT is not intended to replace Ruckig for multi-DOF cases, but it offers distinct advantages in single-axis scenarios:
 
 1.  **Standard Trajectories:** For normal point-to-point moves, calculation results are consistent with Ruckig.  
 ![](doc/img/Compare_Normal.png)
@@ -27,26 +27,24 @@ S7RTT is not intended to replace Ruckig for multi-DOF or complex non-zero target
 3.  **Boundary Conditions:**
     *   In many edge cases, performance is comparable.  
 ![](doc/img/Compare_Complex.png)
-    *   Ruckig currently maintains an edge in robustness regarding specific complex mathematical boundary singularities.  
+    *   Ruckig does exhibit better solutions under certain boundary conditions.  
 ![](doc/img/Compare_Boundary_2.png)
-    *   However, in random number tests, Ruckig's robustness and the number of optimal solutions are far inferior to S7RTT.
+    *   However, more often than not, even within the constraints, Ruckig still attempts to insert a Brake motion, which leads to a suboptimal final solution.  
+![](doc/img/Compare_Boundary_3.png)
+    *   More seriously, Ruckig frequently reports solution failures, which is unacceptable in practical applications. Below are the results of stress tests under random conditions.  
 ```
 ################################################################################
-FINAL STATISTICS (With Simulation Verification)
+FINAL STATISTICS
 ################################################################################
-Total Tests         : 10000
+Total Tests: 10000
 ----------------------------------------
-S7RTT Failures:
-  - Plan Crash/Empty: 0
-  - Accuracy check  : 0
+CATEGORY             | S7RTT      | RUCKIG
 ----------------------------------------
-Ruckig Failures:
-  - Plan Error      : 779
-  - Accuracy check  : 0
+Plan Failures        | 0          | 751
+Sim Acc Failures     | 0          | 0
 ----------------------------------------
-Comparisons:
-  - S7 Faster       : 708 (Optimizations)
-  - Mismatches      : 4 (S7 Slower/Failed)
+Faster Count         | 742        | 9
+Draws                | 8498       | 8498
 ################################################################################
 ```
    
@@ -68,6 +66,7 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
 
 
 
