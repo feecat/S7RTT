@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.5
+// Version:      V1.5.2
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -95,6 +95,7 @@ static inline S7RTT_MotionState s7rtt_state_init(double dt, double p, double v, 
 #define S7_EPS_DIST   1e-8
 #define S7_EPS_VEL    1e-7
 #define S7_EPS_ACC    1e-6
+#define S7_EPS_SOLVER 1e-3
 #define S7_MATH_EPS   1e-9
 #define S7_SOLVER_TOL 1e-8
 #define S7_SOLVER_ITER 30
@@ -124,13 +125,14 @@ static void s7_path_init(S7RTT_Path* path, int initial_cap) {
     path->count = 0;
     path->capacity = initial_cap;
     path->nodes = (S7RTT_MotionState*)malloc(sizeof(S7RTT_MotionState) * initial_cap);
+    if (path->nodes == NULL) {
+        path->capacity = 0;
+    }
 }
 
 static void s7_path_push(S7RTT_Path* path, S7RTT_MotionState s) {
-    if (path->count >= path->capacity) {
-        path->capacity *= 2;
-        path->nodes = (S7RTT_MotionState*)realloc(path->nodes, sizeof(S7RTT_MotionState) * path->capacity);
-    }
+    if (path->nodes == NULL) return;
+    if (path->count >= path->capacity) return;
     path->nodes[path->count++] = s;
 }
 
@@ -289,7 +291,7 @@ static inline S7_VelChange s7_calc_vel_change_times(double v0, double a0, double
     double v_min_feasible = v0 + _a0 * t_to_zero + 0.5 * j_restore * t_to_zero * t_to_zero;
 
     double direction = 1.0;
-    if (v1 < v_min_feasible - 1e-5) {
+    if (v1 < v_min_feasible - S7_MATH_EPS) {
         direction = -1.0;
     }
 
@@ -460,7 +462,7 @@ static double s7_solve_time_optimal(S7RTT_MotionState curr, double target_p, dou
 
     double best_t = s7_solve_brent(s7_time_opt_cost, &ctx, 0.0, t_search_max);
 
-    if (fabs(s7_time_opt_cost(best_t, &ctx)) > 1e-2) return -1.0;
+    if (fabs(s7_time_opt_cost(best_t, &ctx)) > S7_EPS_SOLVER) return -1.0;
     return best_t;
 }
 
@@ -471,8 +473,6 @@ static S7RTT_MotionState s7_append_safety_decel(S7RTT_Path* nodes, S7RTT_MotionS
         double j_rec = -s7_copysign(j_max, curr.a);
         double tgt_a = s7_copysign(a_max, curr.a);
         double t_rec = (curr.a - tgt_a) / (-j_rec);
-
-        if (t_rec > 5.0) t_rec = 5.0;
 
         if (t_rec > S7_EPS_TIME) {
             S7RTT_MotionState n = curr;

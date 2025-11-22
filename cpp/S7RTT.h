@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.5
+// Version:      V1.5.2
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -86,7 +86,7 @@ private:
     static constexpr double EPS_ACC    = 1e-6;
     static constexpr double MATH_EPS   = 1e-9;
 
-    static constexpr double EPS_SOLVER = 1e-4;
+    static constexpr double EPS_SOLVER = 1e-3;
     static constexpr int    SOLVER_ITER = 30;
     static constexpr double SOLVER_TOL  = 1e-8;
 
@@ -216,7 +216,7 @@ private:
                 _integrate_state_inplace(curr, t_ramp, j_apply);
             }
 
-            curr.a = limit_a; // Clamp
+            //curr.a = limit_a; // Clamp
 
             double t_hold = t - t_ramp;
             if (t_hold > EPS_TIME) {
@@ -239,7 +239,7 @@ private:
     };
 
     static inline VelChangeTimes _calc_vel_change_times(double v0, double a0, double v1, double a_max, double j_max) {
-        double _a0 = std::clamp(a0, -a_max, a_max);
+        double _a0 = std::max(-a_max, std::min(a_max, a0));
 
         // Feasibility check logic
         double abs_a0 = std::abs(_a0);
@@ -249,7 +249,7 @@ private:
 
         double direction = 1.0;
         // Added small hysteresis to prevent flipping on numerical noise
-        if (v1 < v_min_feasible - 1e-5) {
+        if (v1 < v_min_feasible - MATH_EPS) {
             direction = -1.0;
         }
 
@@ -408,7 +408,7 @@ private:
 
         double best_t = _solve_brent(error_func, 0.0, t_search_max);
 
-        if (std::abs(error_func(best_t)) > 1e-2) return -1.0;
+        if (std::abs(error_func(best_t)) > EPS_SOLVER) return -1.0;
         return best_t;
     }
 
@@ -453,9 +453,6 @@ private:
             double j_rec = -std::copysign(j_max, curr.a);
             double tgt_a = std::copysign(a_max, curr.a);
             double t_rec = (curr.a - tgt_a) / (-j_rec);
-
-            // Safety clamp: prevent infinite recovery if inputs are garbage
-            if (t_rec > 5.0) t_rec = 5.0;
 
             if (t_rec > EPS_TIME) {
                 MotionState n = curr;
