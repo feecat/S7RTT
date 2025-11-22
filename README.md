@@ -4,7 +4,7 @@
 
 While conceptually similar to the renowned [Ruckig](https://github.com/pantor/ruckig) library, S7RTT is specifically optimized for **single-axis applications**, offering a streamlined alternative for embedded systems and real-time control loops where low latency and deterministic execution are paramount.
 
-![](doc/img/MAIN.png)
+![](doc/img/Header.png)
 
 ## 🚀 Key Features
 
