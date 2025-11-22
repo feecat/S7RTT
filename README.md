@@ -57,7 +57,7 @@ Benchmarks conducted on C++ platforms highlight the efficiency of S7RTT:
 *   **Lower Jitter:** The calculation time is more deterministic with lower variance (jitter), making it highly suitable for hard real-time systems where timing budgets are strict.
 
 (Measure cycle time compare chart, The unit is nanoseconds)
-![](doc/img/CycleTimeCompare.png)
+![](doc/img/Compare_CycleTime.png)
 
 ## 📝 Summary & Acknowledgements
 
@@ -66,6 +66,7 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
 
 
 
