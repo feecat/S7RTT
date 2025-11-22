@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.5.2
+// Version:      V1.6.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -565,6 +565,19 @@ public:
 
         _refine_trajectory_precision(final_nodes, start_state, target_p);
 
+        return final_nodes;
+    }
+
+	std::vector<MotionState> plan_velocity(const MotionState& start_state, double target_v, double v_max, double a_max, double j_max) {
+        if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
+        std::vector<MotionState> final_nodes;
+        final_nodes.reserve(32);
+        MotionState curr = start_state;
+        curr = _append_safety_decel(final_nodes, curr, a_max, j_max);
+        double safe_target_v = std::max(-v_max, std::min(v_max, target_v));
+        TinyProfile<3> shapes;
+        _build_vel_profile(shapes, curr, safe_target_v, a_max, j_max);
+        _append_from_profile(final_nodes, curr, shapes);
         return final_nodes;
     }
 

@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.5
+# Version:      V1.6
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -489,6 +489,39 @@ class S7RTT:
         self._refine_trajectory_precision(final_nodes, start_state, target_p)
 
         return final_nodes
+    
+    def plan_velocity(self, start_state, target_v, v_max, a_max, j_max):
+        """
+        Calculates a time-optimal velocity profile to reach target_v from start_state.
+        Does not consider position constraints.
+        """
+        # 0. Basic parameter validation
+        if v_max <= 0 or a_max <= 0 or j_max <= 0: 
+            return []
+
+        nodes = []
+        curr = start_state.copy()
+
+        # 1. Safety Deceleration
+        # If initial acceleration is exceeding a_max, first ramp it down safely.
+        safety_nodes, curr = self._handle_safety_decel(curr, a_max, j_max)
+        nodes.extend(safety_nodes)
+
+        # 2. Clamp Target Velocity
+        # Ensure the target does not exceed the physical maximum velocity
+        safe_target_v = max(-v_max, min(v_max, target_v))
+
+        # 3. Build Velocity Profile
+        # Uses internal math to find t1 (jerk), t2 (const accel), t3 (jerk)
+        # to reach safe_target_v with final acceleration = 0.
+        shapes = self._build_vel_profile(curr, safe_target_v, a_max, j_max)
+
+        # 4. Generate Trajectory Nodes
+        # Simulates the shapes to create the MotionState objects
+        _, profile_nodes = self._simulate_profile(curr, shapes)
+        nodes.extend(profile_nodes)
+
+        return nodes
 
     def at_time(self, trajectory, t):
         if not trajectory: return MotionState()

@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.5.2
+// Version:      V1.6.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -64,6 +64,9 @@ typedef struct {
  */
 S7RTT_Path s7rtt_plan(S7RTT_MotionState start, double target_p, double target_v,
                       double v_max, double a_max, double j_max);
+
+S7RTT_Path s7rtt_plan_velocity(S7RTT_MotionState start, double target_v,
+                               double v_max, double a_max, double j_max);
 
 /* Helper to sample the trajectory at a specific time t */
 S7RTT_MotionState s7rtt_at_time(const S7RTT_Path* path, double t);
@@ -606,6 +609,31 @@ S7RTT_Path s7rtt_plan(S7RTT_MotionState start_state, double target_p, double tar
     }
 
     s7_refine_trajectory(&path, start_state, target_p);
+
+    return path;
+}
+
+S7RTT_Path s7rtt_plan_velocity(S7RTT_MotionState start, double target_v,
+                               double v_max, double a_max, double j_max) {
+    S7RTT_Path path;
+    s7_path_init(&path, 8);
+
+    if (v_max <= 0 || a_max <= 0 || j_max <= 0) return path;
+
+    S7RTT_MotionState curr = start;
+
+    /* 1. Safety Decel */
+    curr = s7_append_safety_decel(&path, curr, a_max, j_max);
+
+    /* 2. Clamp Target */
+    double safe_target_v = s7_fclamp(target_v, -v_max, v_max);
+
+    /* 3. Build Profile */
+    S7_Profile shapes;
+    s7_build_vel_profile(&shapes, curr, safe_target_v, a_max, j_max);
+
+    /* 4. Append Nodes */
+    s7_append_from_profile(&path, curr, &shapes);
 
     return path;
 }
