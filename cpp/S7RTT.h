@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.6.1
+// Version:      V1.7.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -80,15 +80,15 @@ struct TinyProfile {
 class S7RTT {
 private:
     // --- Constants ---
-    static constexpr double EPS_TIME   = 1e-9;
-    static constexpr double EPS_DIST   = 1e-8;
-    static constexpr double EPS_VEL    = 1e-7;
-    static constexpr double EPS_ACC    = 1e-6;
-    static constexpr double MATH_EPS   = 1e-9;
+    static constexpr double EPS_TIME   = 1e-10;
+    static constexpr double EPS_DIST   = 1e-10;
+    static constexpr double EPS_VEL    = 1e-10;
+    static constexpr double EPS_ACC    = 1e-10;
+    static constexpr double MATH_EPS   = 1e-10;
 
-    static constexpr double EPS_SOLVER = 1e-3;
-    static constexpr int    SOLVER_ITER = 30;
-    static constexpr double SOLVER_TOL  = 1e-8;
+    static constexpr double EPS_SOLVER = 1e-4;
+    static constexpr int    SOLVER_ITER = 50;
+    static constexpr double SOLVER_TOL  = 1e-10;
 
     static constexpr double ONE_SIXTH  = 1.0 / 6.0;
     static constexpr double ONE_HALF   = 0.5;
@@ -108,10 +108,9 @@ public:
         s.p += s.v * dt + s.a * dt2 * ONE_HALF + j * dt3 * ONE_SIXTH;
         s.v += s.a * dt + j * dt2 * ONE_HALF;
         s.a += j * dt;
-        // s.j and s.dt are not kinematic state variables, ignored here for speed
     }
 
-    // Helper to return a new state (wraps inplace)
+    // Helper to return a new state
     static inline MotionState _integrate_step(const MotionState& s, double dt, double j) {
         if (dt <= EPS_TIME) return s;
         MotionState next = s;
@@ -126,7 +125,7 @@ private:
     // 2. Simulation & Append Helpers (Memory Optimized)
     // ==========================================================================
 
-    // Optimization: Append directly to output vector to avoid std::vector copies
+    // Optimization: Append directly to output vector
     template <int N>
     MotionState _append_from_profile(std::vector<MotionState>& nodes, const MotionState& start_s, const TinyProfile<N>& shapes) {
         MotionState curr = start_s;
@@ -160,34 +159,34 @@ private:
 
     // Calculates the saturated state for solver use (Math only)
     static inline void _integrate_saturated_state_only(MotionState& curr, double t, double j_apply, double a_max) {
-        if (t <= EPS_TIME) return;
-
         double limit_a = (j_apply > 0) ? a_max : -a_max;
         double dist_to_lim = limit_a - curr.a;
 
         if (std::abs(j_apply) < MATH_EPS) {
-            _integrate_state_inplace(curr, t, j_apply);
+            // If Jerk is 0, we are just moving with constant acceleration (which might be limit_a)
+            if (t > EPS_TIME) _integrate_state_inplace(curr, t, j_apply);
             return;
         }
 
-        bool same_dir = (j_apply > 0) ? (dist_to_lim > -MATH_EPS) : (dist_to_lim < MATH_EPS);
-        double t_ramp = same_dir ? (dist_to_lim / j_apply) : 0.0;
+        // Check if we are moving towards the limit
+        bool is_same_dir = (j_apply > 0 && dist_to_lim > -MATH_EPS) ||
+                           (j_apply < 0 && dist_to_lim < MATH_EPS);
+
+        double t_ramp = is_same_dir ? (dist_to_lim / j_apply) : 0.0;
 
         if (t <= t_ramp) {
-            _integrate_state_inplace(curr, t, j_apply);
+            if (t > EPS_TIME) _integrate_state_inplace(curr, t, j_apply);
         } else {
-            if (t_ramp > EPS_TIME) {
-                _integrate_state_inplace(curr, t_ramp, j_apply);
-            }
+            if (t_ramp > EPS_TIME) _integrate_state_inplace(curr, t_ramp, j_apply);
+
             curr.a = limit_a; // Clamp a to limit to avoid numerical drift
+
             double t_hold = t - t_ramp;
-            if (t_hold > EPS_TIME) {
-                _integrate_state_inplace(curr, t_hold, 0.0);
-            }
+            if (t_hold > EPS_TIME) _integrate_state_inplace(curr, t_hold, 0.0);
         }
     }
 
-    // Generates and appends saturated profile nodes
+    // Generates and appends saturated profile nodes (Used for final generation)
     MotionState _append_saturated_profile(std::vector<MotionState>& nodes, const MotionState& s, double t, double j_apply, double a_max) {
         MotionState curr = s;
         if (t <= EPS_TIME) return curr;
@@ -199,15 +198,18 @@ private:
         if (std::abs(j_apply) < MATH_EPS) {
             t_ramp = std::numeric_limits<double>::infinity();
         } else {
-            bool same_dir = (j_apply > 0) ? (dist_to_lim > -MATH_EPS) : (dist_to_lim < MATH_EPS);
-            t_ramp = same_dir ? (dist_to_lim / j_apply) : 0.0;
+            bool is_same_dir = (j_apply > 0 && dist_to_lim > -MATH_EPS) ||
+                               (j_apply < 0 && dist_to_lim < MATH_EPS);
+            t_ramp = is_same_dir ? (dist_to_lim / j_apply) : 0.0;
         }
 
         if (t <= t_ramp) {
-            MotionState node = curr;
-            node.dt = t; node.j = j_apply;
-            nodes.push_back(node);
-            _integrate_state_inplace(curr, t, j_apply);
+            if (t > EPS_TIME) {
+                MotionState node = curr;
+                node.dt = t; node.j = j_apply;
+                nodes.push_back(node);
+                _integrate_state_inplace(curr, t, j_apply);
+            }
         } else {
             if (t_ramp > EPS_TIME) {
                 MotionState node = curr;
@@ -216,10 +218,9 @@ private:
                 _integrate_state_inplace(curr, t_ramp, j_apply);
             }
 
-            //curr.a = limit_a; // Clamp
-
             double t_hold = t - t_ramp;
             if (t_hold > EPS_TIME) {
+                curr.a = limit_a; // Precise clamp
                 MotionState node = curr;
                 node.dt = t_hold; node.j = 0.0;
                 nodes.push_back(node);
@@ -241,14 +242,11 @@ private:
     static inline VelChangeTimes _calc_vel_change_times(double v0, double a0, double v1, double a_max, double j_max) {
         double _a0 = std::max(-a_max, std::min(a_max, a0));
 
-        // Feasibility check logic
-        double abs_a0 = std::abs(_a0);
-        double t_to_zero = abs_a0 / j_max;
-        double j_restore = (abs_a0 > MATH_EPS) ? -std::copysign(j_max, _a0) : 0.0;
+        double t_to_zero = std::abs(_a0) / j_max;
+        double j_restore = (std::abs(_a0) > MATH_EPS) ? -std::copysign(j_max, _a0) : 0.0;
         double v_min_feasible = v0 + _a0 * t_to_zero + 0.5 * j_restore * t_to_zero * t_to_zero;
 
         double direction = 1.0;
-        // Added small hysteresis to prevent flipping on numerical noise
         if (v1 < v_min_feasible - MATH_EPS) {
             direction = -1.0;
         }
@@ -270,15 +268,14 @@ private:
         double dv_req = _v1 - _v0;
 
         if (dv_req > dv_inflection) {
-            // Cruise required
             double dv_missing = dv_req - dv_inflection;
             t2 = dv_missing / a_max;
             t1 = t1_max;
             t3 = t3_max;
         } else {
-            // Triangular profile
             double term = j_max * dv_req + 0.5 * _a0_scaled * _a0_scaled;
-            double a_peak = (term > 0) ? std::sqrt(term) : 0.0;
+            if (term < 0) term = 0.0;
+            double a_peak = std::sqrt(term);
 
             t1 = (a_peak - _a0_scaled) / j_max;
             t3 = a_peak / j_max;
@@ -385,31 +382,70 @@ private:
     // 4. Trajectory Planning Logic
     // ==========================================================================
 
-    // Returns the time 't' for the saturated phase, or -1.0 if failed
-    double _solve_time_optimal(const MotionState& curr, double target_p, double target_v, double a_max, double j_max, double v_max, double j_action) {
-        double t_est = (a_max > 0) ? (std::abs(curr.v) + v_max) / a_max : 1.0;
-        double t_search_max = t_est * 3.0 + 5.0;
+    struct CandidateResult {
+        bool valid = false;
+        double total_duration = std::numeric_limits<double>::infinity();
+        double switch_time = 0.0;
+    };
 
+    // Corresponds to Python's inner `solve_for_jerk`
+    CandidateResult _solve_jerk_specific(const MotionState& curr, double target_p, double target_v,
+                                         double a_max, double j_max, double v_max, double j_apply) {
+        CandidateResult res;
+
+        // 1. Estimate search horizon
+        double t_est = (a_max > 0) ? (std::abs(curr.v) + v_max) / a_max : 1.0;
+        double search_horizon = t_est * 2.0 + 5.0;
+
+        // Shared calculation object to avoid reallocation
         TinyProfile<3> shapes_rem;
 
-        auto error_func = [&](double t) -> double {
+        // 2. Error function for Brent's method
+        auto get_pos_error = [&](double t) -> double {
             if (t < 0) t = 0;
             MotionState s_sim = curr;
-            _integrate_saturated_state_only(s_sim, t, j_action, a_max);
+            _integrate_saturated_state_only(s_sim, t, j_apply, a_max);
             _build_vel_profile(shapes_rem, s_sim, target_v, a_max, j_max);
             _simulate_endpoint_inplace(s_sim, shapes_rem);
             return s_sim.p - target_p;
         };
 
-        double e0 = error_func(0.0);
-        double e_max = error_func(t_search_max);
+        // --- Boundary & Feasibility Checks ---
+        double err_0 = get_pos_error(0.0);
 
-        if (e0 * e_max > 0) return -1.0;
+        // Check 1: Zero Drift
+        if (std::abs(err_0) < EPS_SOLVER) {
+            res.switch_time = 0.0;
+            res.valid = true;
+        }
+        // Check 2: Unreachable (Fail Fast)
+        else if (err_0 * get_pos_error(search_horizon) > 0) {
+            return res; // Invalid
+        }
+        else {
+            // Check 3: Solve Root
+            res.switch_time = _solve_brent(get_pos_error, 0.0, search_horizon);
 
-        double best_t = _solve_brent(error_func, 0.0, t_search_max);
+            // Verify precision
+            if (std::abs(get_pos_error(res.switch_time)) > EPS_SOLVER) {
+                return res; // Invalid
+            }
+            res.valid = true;
+        }
 
-        if (std::abs(error_func(best_t)) > EPS_SOLVER) return -1.0;
-        return best_t;
+        // --- Calculate Total Duration (for competition) ---
+        // Need to reconstruct the profile steps mathematically to sum dt
+        MotionState s_switch = curr;
+        _integrate_saturated_state_only(s_switch, res.switch_time, j_apply, a_max);
+
+        // Note: s_switch.dt is not used here, we use the solved time.
+        // Get the velocity profile duration
+        VelChangeTimes vct = _calc_vel_change_times(s_switch.v, s_switch.a, target_v, a_max, j_max);
+
+        // Total duration = saturated_time + t1 + t2 + t3
+        res.total_duration = res.switch_time + vct.t1 + vct.t2 + vct.t3;
+
+        return res;
     }
 
     void _append_fallback_cruise(std::vector<MotionState>& nodes, MotionState curr, double target_p, double target_v, double v_max, double a_max, double j_max) {
@@ -427,7 +463,7 @@ private:
         // 3. Calculate Cruise Duration
         _build_vel_profile(shapes, curr, target_v, a_max, j_max);
         MotionState s_dec_sim = curr;
-        _simulate_endpoint_inplace(s_dec_sim, shapes); // Simulate decel to find distance consumed
+        _simulate_endpoint_inplace(s_dec_sim, shapes);
 
         double dist_gap = target_p - s_dec_sim.p;
         double effective_v = (std::abs(curr.v) < MATH_EPS) ? std::copysign(MATH_EPS, dist_gap) : curr.v;
@@ -460,7 +496,7 @@ private:
                 n.j = j_rec;
                 nodes.push_back(n);
                 _integrate_state_inplace(curr, t_rec, j_rec);
-                curr.a = tgt_a; // Hard clamp to ensure numeric stability
+                curr.a = tgt_a; // Hard clamp
             }
         }
         return curr;
@@ -473,7 +509,7 @@ private:
         int correction_idx = -1;
         double max_cruise_dt = -1.0;
 
-        // Identify the longest constant velocity segment
+        // Phase 1: Simulation and Identification
         for (size_t i = 0; i < nodes.size(); ++i) {
             if (std::abs(nodes[i].j) < MATH_EPS && std::abs(nodes[i].a) < EPS_ACC) {
                 if (nodes[i].dt > max_cruise_dt) {
@@ -485,25 +521,27 @@ private:
         }
 
         double pos_error = target_p - sim_s.p;
-        if (std::abs(pos_error) <= EPS_DIST || correction_idx == -1) return;
 
-        double v_cruise = nodes[correction_idx].v;
-        if (std::abs(v_cruise) > EPS_VEL) {
-            double dt_fix = pos_error / v_cruise;
-            double new_dt = nodes[correction_idx].dt + dt_fix;
+        // Phase 2: Correction
+        if (std::abs(pos_error) > EPS_DIST && correction_idx != -1) {
+            double v_cruise = nodes[correction_idx].v;
 
-            // SAFETY FIX: Ensure dt doesn't become negative
-            if (new_dt < EPS_TIME) new_dt = EPS_TIME;
+            if (std::abs(v_cruise) > EPS_VEL) {
+                double dt_fix = pos_error / v_cruise;
+                double new_dt = nodes[correction_idx].dt + dt_fix;
 
-            nodes[correction_idx].dt = new_dt;
+                if (new_dt < EPS_TIME) new_dt = EPS_TIME;
 
-            // Re-integrate entire chain to update p, v, a states
-            MotionState curr = start_state;
-            for (auto& node : nodes) {
-                node.p = curr.p;
-                node.v = curr.v;
-                node.a = curr.a;
-                _integrate_state_inplace(curr, node.dt, node.j);
+                nodes[correction_idx].dt = new_dt;
+
+                // Propagate changes by full re-integration
+                MotionState curr = start_state;
+                for (auto& node : nodes) {
+                    node.p = curr.p;
+                    node.v = curr.v;
+                    node.a = curr.a;
+                    _integrate_state_inplace(curr, node.dt, node.j);
+                }
             }
         }
     }
@@ -513,62 +551,68 @@ public:
         if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
 
         std::vector<MotionState> final_nodes;
-        final_nodes.reserve(32); // Pre-allocate to prevent reallocation
+        final_nodes.reserve(32);
 
         MotionState curr = start_state;
 
         // 1. Safety Decel
         curr = _append_safety_decel(final_nodes, curr, a_max, j_max);
 
-        // 2. Feasibility Check
+        // 2. Capacity Check
         double dist_req = target_p - curr.p;
         double d_pos_limit = _calc_max_reach(curr, v_max, target_v, a_max, j_max);
         double d_neg_limit = _calc_max_reach(curr, -v_max, target_v, a_max, j_max);
 
-        bool use_optimal = true;
-        if (dist_req > d_pos_limit + EPS_DIST || dist_req < d_neg_limit - EPS_DIST) {
-            use_optimal = false;
-        }
+        bool use_optimal_solver = true;
+        if (dist_req > d_pos_limit + EPS_DIST) use_optimal_solver = false;
+        if (dist_req < d_neg_limit - EPS_DIST) use_optimal_solver = false;
 
-        // 3. Strategy Execution
-        bool opt_success = false;
-        if (use_optimal) {
-            // Determine direction
-            TinyProfile<3> stop_shapes;
-            _build_vel_profile(stop_shapes, curr, target_v, a_max, j_max);
-            MotionState s_stop = curr;
-            _simulate_endpoint_inplace(s_stop, stop_shapes);
+        // 3. Execution Strategy (Bidirectional Competition)
+        bool opt_found = false;
 
-            bool is_pos_move = (std::abs(curr.v) > EPS_VEL) ? (curr.v > 0) : (target_p > curr.p);
-            double gap = target_p - s_stop.p;
-            double j_action = (is_pos_move) ? ((gap < -EPS_DIST) ? -j_max : j_max)
-                                            : ((gap > EPS_DIST) ? j_max : -j_max);
+        if (use_optimal_solver) {
+            CandidateResult best_res;
+            double best_j = 0.0;
 
-            // Attempt to solve for time
-            double best_t = _solve_time_optimal(curr, target_p, target_v, a_max, j_max, v_max, j_action);
+            // Competition: Try both +j_max and -j_max
+            std::array<double, 2> candidates_j = { j_max, -j_max };
 
-            if (best_t >= 0.0) {
-                // Success: Generate nodes
-                curr = _append_saturated_profile(final_nodes, curr, best_t, j_action, a_max);
+            for (double j_try : candidates_j) {
+                CandidateResult res = _solve_jerk_specific(curr, target_p, target_v, a_max, j_max, v_max, j_try);
 
+                if (res.valid) {
+                    if (!opt_found || res.total_duration < best_res.total_duration) {
+                        best_res = res;
+                        best_j = j_try;
+                        opt_found = true;
+                    }
+                }
+            }
+
+            // Reconstruction
+            if (opt_found) {
+                // Phase 1: Variable acceleration (Switching phase)
+                curr = _append_saturated_profile(final_nodes, curr, best_res.switch_time, best_j, a_max);
+
+                // Phase 2: Velocity profile to target (Remaining phase)
                 TinyProfile<3> shapes_rem;
                 _build_vel_profile(shapes_rem, curr, target_v, a_max, j_max);
                 _append_from_profile(final_nodes, curr, shapes_rem);
-
-                opt_success = true;
             }
         }
 
-        if (!opt_success) {
+        // Fallback
+        if (!opt_found) {
             _append_fallback_cruise(final_nodes, curr, target_p, target_v, v_max, a_max, j_max);
         }
 
+        // 4. Precision Refinement
         _refine_trajectory_precision(final_nodes, start_state, target_p);
 
         return final_nodes;
     }
 
-	std::vector<MotionState> plan_velocity(const MotionState& start_state, double target_v, double v_max, double a_max, double j_max) {
+    std::vector<MotionState> plan_velocity(const MotionState& start_state, double target_v, double v_max, double a_max, double j_max) {
         if (v_max <= 0 || a_max <= 0 || j_max <= 0) return {};
         std::vector<MotionState> final_nodes;
         final_nodes.reserve(32);

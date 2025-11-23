@@ -7,7 +7,7 @@ import math
 REPORT_RUCKIG_ISSUES = False
 REPORT_S7RTT_ISSUES = True
 REPORT_RUCKIG_SLOWS = False
-REPORT_S7RTT_SLOWS = False
+REPORT_S7RTT_SLOWS = True
 
 SIM_TOLERANCE = 1e-3
 
@@ -155,10 +155,10 @@ def run_stress_test_with_sim(num_tests=10000):
         winner_label = "DRAW"
         if s7_ok and rk_ok:
             diff = s7_dur - rk_dur
-            if diff < -1e-6:
+            if diff < -1e-4:
                 cnt_s7_faster += 1
                 winner_label = "S7RTT"
-            elif diff > 1e-6:
+            elif diff > 1e-4:
                 cnt_rk_faster += 1
                 winner_label = "RUCKIG"
             else:

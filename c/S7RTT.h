@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.6.1
+// Version:      V1.7.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -93,15 +93,15 @@ static inline S7RTT_MotionState s7rtt_state_init(double dt, double p, double v, 
 
 #ifdef S7RTT_IMPLEMENTATION
 
-/* --- Constants --- */
-#define S7_EPS_TIME   1e-9
-#define S7_EPS_DIST   1e-8
-#define S7_EPS_VEL    1e-7
-#define S7_EPS_ACC    1e-6
-#define S7_EPS_SOLVER 1e-3
-#define S7_MATH_EPS   1e-9
-#define S7_SOLVER_TOL 1e-8
-#define S7_SOLVER_ITER 30
+/* --- Constants (Updated to V1.7) --- */
+#define S7_EPS_TIME   1e-10
+#define S7_EPS_DIST   1e-10
+#define S7_EPS_VEL    1e-10
+#define S7_EPS_ACC    1e-10
+#define S7_MATH_EPS   1e-10
+#define S7_EPS_SOLVER 1e-4
+#define S7_SOLVER_TOL 1e-10
+#define S7_SOLVER_ITER 50
 
 #define S7_ONE_SIXTH  (1.0 / 6.0)
 #define S7_ONE_HALF   0.5
@@ -110,12 +110,6 @@ static inline S7RTT_MotionState s7rtt_state_init(double dt, double p, double v, 
 
 static inline double s7_fclamp(double x, double lower, double upper) {
     return fmax(lower, fmin(x, upper));
-}
-
-static inline double s7_fsign(double x) {
-    if (x > 0.0) return 1.0;
-    if (x < 0.0) return -1.0;
-    return 0.0;
 }
 
 static inline double s7_copysign(double x, double y) {
@@ -135,7 +129,14 @@ static void s7_path_init(S7RTT_Path* path, int initial_cap) {
 
 static void s7_path_push(S7RTT_Path* path, S7RTT_MotionState s) {
     if (path->nodes == NULL) return;
-    if (path->count >= path->capacity) return;
+    if (path->count >= path->capacity) {
+        int new_cap = path->capacity * 2;
+        if (new_cap < 8) new_cap = 8;
+        S7RTT_MotionState* new_nodes = (S7RTT_MotionState*)realloc(path->nodes, sizeof(S7RTT_MotionState) * new_cap);
+        if (new_nodes == NULL) return; /* Allocation failed */
+        path->nodes = new_nodes;
+        path->capacity = new_cap;
+    }
     path->nodes[path->count++] = s;
 }
 
@@ -168,7 +169,7 @@ static inline S7RTT_MotionState s7_integrate_step(S7RTT_MotionState s, double dt
     return next;
 }
 
-/* --- TinyProfile Replacement (Stack Array) --- */
+/* --- TinyProfile (Stack Array) --- */
 #define S7_MAX_SEGS 8
 typedef struct {
     struct { double dt; double j; } segs[S7_MAX_SEGS];
@@ -319,7 +320,8 @@ static inline S7_VelChange s7_calc_vel_change_times(double v0, double a0, double
         t3 = t3_max;
     } else {
         double term = j_max * dv_req + 0.5 * _a0_scaled * _a0_scaled;
-        double a_peak = (term > 0) ? sqrt(term) : 0.0;
+        if (term < 0) term = 0.0;
+        double a_peak = sqrt(term);
         t1 = (a_peak - _a0_scaled) / j_max;
         t3 = a_peak / j_max;
         if (t1 < 0) t1 = 0.0;
@@ -353,13 +355,13 @@ static double s7_solve_brent(S7_SolverFunc func, void* ctx, double lower, double
     double d = b - a, e = b - a;
 
     for (int i = 0; i < S7_SOLVER_ITER; ++i) {
-        if (fabs(fb) < S7_SOLVER_TOL) return b;
         if (fabs(fc) < fabs(fb)) {
             a = b; b = c; c = a;
             fa = fb; fb = fc; fc = fa;
         }
         double xm = 0.5 * (c - b);
-        if (fabs(xm) < S7_SOLVER_TOL) return b;
+
+        if (fabs(xm) < S7_SOLVER_TOL || fb == 0.0) return b;
 
         if (fabs(e) >= S7_SOLVER_TOL && fabs(fa) > fabs(fb)) {
             double s = fb / fa;
@@ -451,22 +453,92 @@ static double s7_time_opt_cost(double t, void* data) {
     return s.p - c->target_p;
 }
 
-static double s7_solve_time_optimal(S7RTT_MotionState curr, double target_p, double target_v,
-                                    double a_max, double j_max, double v_max, double j_action) {
-    S7_TimeCtx ctx = {curr, target_p, target_v, a_max, j_max, j_action};
+/* Struct to hold results of a potential jerk choice */
+typedef struct {
+    bool valid;
+    double total_duration;
+    double best_t;
+    double j_apply;
+} S7_OptCandidate;
 
+static S7_OptCandidate s7_eval_jerk_choice(S7RTT_MotionState curr, double target_p, double target_v,
+                                           double a_max, double j_max, double v_max, double j_apply) {
+    S7_OptCandidate res;
+    res.valid = false;
+    res.j_apply = j_apply;
+
+    S7_TimeCtx ctx = {curr, target_p, target_v, a_max, j_max, j_apply};
+
+    /* 1. Estimate Search Horizon */
     double t_est = (a_max > 0) ? (fabs(curr.v) + v_max) / a_max : 1.0;
-    double t_search_max = t_est * 3.0 + 5.0;
+    double search_horizon = t_est * 2.0 + 5.0;
 
-    double e0 = s7_time_opt_cost(0.0, &ctx);
-    double e_max = s7_time_opt_cost(t_search_max, &ctx);
+    /* 2. Boundary Checks */
+    double err_0 = s7_time_opt_cost(0.0, &ctx);
 
-    if (e0 * e_max > 0) return -1.0;
+    /* Check 1: Zero Drift */
+    if (fabs(err_0) < S7_EPS_SOLVER) {
+        res.best_t = 0.0;
+    } 
+    /* Check 2: Unreachable */
+    else {
+        double err_hor = s7_time_opt_cost(search_horizon, &ctx);
+        if (err_0 * err_hor > 0) {
+            return res; /* Fail */
+        }
+        /* Check 3: Solve */
+        res.best_t = s7_solve_brent(s7_time_opt_cost, &ctx, 0.0, search_horizon);
+        if (fabs(s7_time_opt_cost(res.best_t, &ctx)) > S7_EPS_SOLVER) {
+            return res; /* Fail precision check */
+        }
+    }
 
-    double best_t = s7_solve_brent(s7_time_opt_cost, &ctx, 0.0, t_search_max);
+    /* 3. Calculate Total Duration */
+    /* Reconstruct phases to sum up dt. We simulate locally without allocating nodes. */
+    double total_dt = 0.0;
+    S7RTT_MotionState sim_s = curr;
+    
+    /* Phase 1: Saturated integration segments */
+    double t = res.best_t;
+    double limit_a = (j_apply > 0) ? a_max : -a_max;
+    double dist_to_lim = limit_a - sim_s.a;
+    double t_ramp = 0.0;
+    
+    if (fabs(j_apply) >= S7_MATH_EPS) {
+         bool same_dir = (j_apply > 0) ? (dist_to_lim > -S7_MATH_EPS) : (dist_to_lim < S7_MATH_EPS);
+         t_ramp = same_dir ? (dist_to_lim / j_apply) : 0.0;
+    } else {
+         t_ramp = INFINITY;
+    }
 
-    if (fabs(s7_time_opt_cost(best_t, &ctx)) > S7_EPS_SOLVER) return -1.0;
-    return best_t;
+    if (t <= t_ramp) {
+        if (t > S7_EPS_TIME) {
+            total_dt += t;
+            s7_integrate_state_inplace(&sim_s, t, j_apply);
+        }
+    } else {
+        if (t_ramp > S7_EPS_TIME) {
+            total_dt += t_ramp;
+            s7_integrate_state_inplace(&sim_s, t_ramp, j_apply);
+        }
+        sim_s.a = limit_a;
+        double t_hold = t - t_ramp;
+        if (t_hold > S7_EPS_TIME) {
+            total_dt += t_hold;
+            s7_integrate_state_inplace(&sim_s, t_hold, 0.0);
+        }
+    }
+
+    /* Phase 2: Velocity profile */
+    S7_Profile rem_shapes;
+    s7_build_vel_profile(&rem_shapes, sim_s, target_v, a_max, j_max);
+    for (int i=0; i<rem_shapes.count; ++i) {
+        total_dt += rem_shapes.segs[i].dt;
+    }
+
+    res.total_duration = total_dt;
+    res.valid = true;
+    return res;
 }
 
 /* --- Planning Steps --- */
@@ -520,8 +592,9 @@ static void s7_append_fallback_cruise(S7RTT_Path* nodes, S7RTT_MotionState curr,
 }
 
 static void s7_refine_trajectory(S7RTT_Path* nodes, S7RTT_MotionState start, double target_p) {
-    if (nodes->count == 0) return;
+    if (!nodes || nodes->count == 0) return;
 
+    /* Phase 1: Simulation and Identification */
     S7RTT_MotionState sim_s = start;
     int correction_idx = -1;
     double max_cruise_dt = -1.0;
@@ -537,22 +610,34 @@ static void s7_refine_trajectory(S7RTT_Path* nodes, S7RTT_MotionState start, dou
     }
 
     double pos_error = target_p - sim_s.p;
-    if (fabs(pos_error) <= S7_EPS_DIST || correction_idx == -1) return;
+    
+    /* Phase 2: Correction and Propagation */
+    if (fabs(pos_error) > S7_EPS_DIST && correction_idx != -1) {
+        double v_cruise = nodes->nodes[correction_idx].v;
+        if (fabs(v_cruise) > S7_EPS_VEL) {
+            double dt_fix = pos_error / v_cruise;
+            double new_dt = nodes->nodes[correction_idx].dt + dt_fix;
+            if (new_dt < S7_EPS_TIME) new_dt = S7_EPS_TIME;
 
-    double v_cruise = nodes->nodes[correction_idx].v;
-    if (fabs(v_cruise) > S7_EPS_VEL) {
-        double dt_fix = pos_error / v_cruise;
-        double new_dt = nodes->nodes[correction_idx].dt + dt_fix;
-        if (new_dt < S7_EPS_TIME) new_dt = S7_EPS_TIME;
+            nodes->nodes[correction_idx].dt = new_dt;
 
-        nodes->nodes[correction_idx].dt = new_dt;
-
-        S7RTT_MotionState curr = start;
-        for (int k = 0; k < nodes->count; ++k) {
-            nodes->nodes[k].p = curr.p;
-            nodes->nodes[k].v = curr.v;
-            nodes->nodes[k].a = curr.a;
-            s7_integrate_state_inplace(&curr, nodes->nodes[k].dt, nodes->nodes[k].j);
+            /* Propagate changes re-calculating start states */
+            S7RTT_MotionState curr = start;
+            /* Integrate up to the modified node */
+            for (int k = 0; k < correction_idx; ++k) {
+                s7_integrate_state_inplace(&curr, nodes->nodes[k].dt, nodes->nodes[k].j);
+            }
+            
+            /* Apply modification and continue */
+            s7_integrate_state_inplace(&curr, nodes->nodes[correction_idx].dt, nodes->nodes[correction_idx].j);
+            
+            /* Update subsequent nodes */
+            for (int k = correction_idx + 1; k < nodes->count; ++k) {
+                nodes->nodes[k].p = curr.p;
+                nodes->nodes[k].v = curr.v;
+                nodes->nodes[k].a = curr.a;
+                s7_integrate_state_inplace(&curr, nodes->nodes[k].dt, nodes->nodes[k].j);
+            }
         }
     }
 }
@@ -571,7 +656,7 @@ S7RTT_Path s7rtt_plan(S7RTT_MotionState start_state, double target_p, double tar
     /* 1. Safety Decel */
     curr = s7_append_safety_decel(&path, curr, a_max, j_max);
 
-    /* 2. Feasibility */
+    /* 2. Feasibility Check */
     double dist_req = target_p - curr.p;
     double d_pos_lim = s7_calc_max_reach(curr, v_max, target_v, a_max, j_max);
     double d_neg_lim = s7_calc_max_reach(curr, -v_max, target_v, a_max, j_max);
@@ -582,21 +667,25 @@ S7RTT_Path s7rtt_plan(S7RTT_MotionState start_state, double target_p, double tar
     }
 
     bool opt_success = false;
+    
+    /* 3. Execution Strategy */
     if (use_optimal) {
-        S7_Profile stop_shapes;
-        s7_build_vel_profile(&stop_shapes, curr, target_v, a_max, j_max);
-        S7RTT_MotionState s_stop = curr;
-        s7_simulate_endpoint_inplace(&s_stop, &stop_shapes);
+        /* Bidirectional Competition */
+        S7_OptCandidate c1 = s7_eval_jerk_choice(curr, target_p, target_v, a_max, j_max, v_max, j_max);
+        S7_OptCandidate c2 = s7_eval_jerk_choice(curr, target_p, target_v, a_max, j_max, v_max, -j_max);
+        
+        S7_OptCandidate* winner = NULL;
+        
+        if (c1.valid && c2.valid) {
+            winner = (c1.total_duration < c2.total_duration) ? &c1 : &c2;
+        } else if (c1.valid) {
+            winner = &c1;
+        } else if (c2.valid) {
+            winner = &c2;
+        }
 
-        bool is_pos_move = (fabs(curr.v) > S7_EPS_VEL) ? (curr.v > 0) : (target_p > curr.p);
-        double gap = target_p - s_stop.p;
-        double j_action = (is_pos_move) ? ((gap < -S7_EPS_DIST) ? -j_max : j_max)
-                                        : ((gap > S7_EPS_DIST) ? j_max : -j_max);
-
-        double best_t = s7_solve_time_optimal(curr, target_p, target_v, a_max, j_max, v_max, j_action);
-
-        if (best_t >= 0.0) {
-            curr = s7_append_saturated_profile(&path, curr, best_t, j_action, a_max);
+        if (winner) {
+            curr = s7_append_saturated_profile(&path, curr, winner->best_t, winner->j_apply, a_max);
             S7_Profile rem;
             s7_build_vel_profile(&rem, curr, target_v, a_max, j_max);
             s7_append_from_profile(&path, curr, &rem);
@@ -605,9 +694,11 @@ S7RTT_Path s7rtt_plan(S7RTT_MotionState start_state, double target_p, double tar
     }
 
     if (!opt_success) {
+        /* Fallback */
         s7_append_fallback_cruise(&path, curr, target_p, target_v, v_max, a_max, j_max);
     }
 
+    /* 4. Precision Refinement */
     s7_refine_trajectory(&path, start_state, target_p);
 
     return path;

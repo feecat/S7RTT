@@ -28,7 +28,7 @@ S7RTT is not intended to replace Ruckig for multi-DOF cases, but it offers disti
     *   In many edge cases, performance is comparable.  
 ![](doc/img/Compare_Complex.png)
     *   Ruckig does exhibit better solutions under certain boundary conditions.  
-![](doc/img/Compare_Boundary_2.png)
+![](doc/img/Compare_Boundary_4.png)
     *   However, more often than not, even within the constraints, Ruckig still attempts to insert a Brake motion, which leads to a suboptimal final solution.  
 ![](doc/img/Compare_Boundary_3.png)
     *   More seriously, Ruckig frequently reports solution failures, which is unacceptable in practical applications. Below are the results of stress tests under random conditions.  
@@ -43,8 +43,8 @@ CATEGORY             | S7RTT      | RUCKIG
 Plan Failures        | 0          | 751
 Sim Acc Failures     | 0          | 0
 ----------------------------------------
-Faster Count         | 742        | 9
-Draws                | 8498       | 8498
+Faster Count         | 756        | 1
+Draws                | 8492       | 8492
 ################################################################################
 ```
    

@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.6
+# Version:      V1.7
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -52,14 +52,14 @@ class S7RTT:
     """
     
     # --- Numerical Tolerances ---
-    EPS_TIME = 1e-9     # Minimum significant time duration
-    EPS_DIST = 1e-8     # Position tolerance
-    EPS_VEL  = 1e-7     # Velocity tolerance
-    EPS_ACC  = 1e-6     # Acceleration tolerance
-    MATH_EPS = 1e-9     # General epsilon
-    EPS_SOLVER = 1e-3   # Solver tolerance
-    SOLVER_ITER = 30    # Max iterations for Brent's method
-    SOLVER_TOL  = 1e-8  # Solver precision
+    EPS_TIME = 1e-10     # Minimum significant time duration
+    EPS_DIST = 1e-10     # Position tolerance
+    EPS_VEL  = 1e-10    # Velocity tolerance
+    EPS_ACC  = 1e-10    # Acceleration tolerance
+    MATH_EPS = 1e-10    # General epsilon
+    EPS_SOLVER = 1e-4   # Solver tolerance
+    SOLVER_ITER = 50    # Max iterations for Brent's method
+    SOLVER_TOL  = 1e-10  # Solver precision
 
     def __init__(self):
         pass
@@ -289,55 +289,91 @@ class S7RTT:
 
     def _try_time_optimal_plan(self, curr, target_p, target_v, a_max, j_max, v_max):
         """
-        Attempts to find a time-optimal trajectory using Brent's method on time.
-        Returns (nodes, final_state) if successful, else (None, None).
+        Attempts to find a time-optimal trajectory using a bidirectional competition strategy.
+        Solves for the optimal switching time 't' using Brent's method.
+        
+        Returns:
+            (nodes, final_state) if successful, else (None, None).
         """
+        
+        # 1. Estimate search horizon
         t_est = (abs(curr.v) + v_max) / a_max if a_max > 0 else 1.0
-        t_search_max = t_est * 3.0 + 5.0
+        search_horizon = t_est * 2.0 + 5.0
         
-        # Determine direction
-        stop_shapes = self._build_vel_profile(curr, target_v, a_max, j_max)
-        s_stop, _ = self._simulate_profile(curr, stop_shapes)
-        
-        is_pos_move = (curr.v > self.EPS_VEL)
-        if abs(curr.v) <= self.EPS_VEL: 
-            is_pos_move = (target_p > curr.p) 
-        
-        gap = target_p - s_stop.p
-        if is_pos_move:
-            j_action = -j_max if gap < -self.EPS_DIST else j_max
-        else:
-            j_action = j_max if gap > self.EPS_DIST else -j_max
-        
-        def error_func(t):
-            if t < 0: t = 0
-            s1, _ = self._integrate_saturated(curr, t, j_action, a_max)
-            shapes_rem = self._build_vel_profile(s1, target_v, a_max, j_max)
-            s_final, _ = self._simulate_profile(s1, shapes_rem)
-            return s_final.p - target_p
+        # 2. Internal Solver Function
+        def solve_for_jerk(j_apply):
+            
+            # Calculates position error after integrating for time 't' and planning the rest.
+            def get_pos_error(t):
+                t = max(0.0, t) # Clamp time
+                s1, _ = self._integrate_saturated(curr, t, j_apply, a_max)
+                shapes_rem = self._build_vel_profile(s1, target_v, a_max, j_max)
+                s_final, _ = self._simulate_profile(s1, shapes_rem)
+                return s_final.p - target_p
 
-        if error_func(0.0) * error_func(t_search_max) > 0: 
-            return None, None
+            # --- Boundary & Feasibility Checks ---
+            err_0 = get_pos_error(0.0)
+            
+            # Check 1: Zero Drift Handling
+            if abs(err_0) < self.EPS_SOLVER:
+                best_t = 0.0
+            # Check 2: Unreachable Target (Fail Fast)
+            elif err_0 * get_pos_error(search_horizon) > 0:
+                return None
+            else:
+                # Check 3: Solve Root (Brent's Method)
+                best_t = self._solve_brent(get_pos_error, 0.0, search_horizon)
+                
+                # Verify precision strictness
+                if abs(get_pos_error(best_t)) > self.EPS_SOLVER:
+                    return None
+            
+            # --- Trajectory Reconstruction ---
+            # Re-integrate to generate the actual node list.
+            nodes = []
+            _, switch_segments = self._integrate_saturated(curr, best_t, j_apply, a_max)
+            
+            # Use a temporary state variable to prevent side-effects on 'curr'
+            running_state = curr.copy()
+            
+            # Phase 1: Variable acceleration (Switching phase)
+            for dt, j in switch_segments:
+                if dt < self.EPS_TIME: continue
+                
+                # Snapshot state at the start of the segment
+                n = running_state.copy()
+                n.dt, n.j = dt, j
+                nodes.append(n)
+                
+                # Advance state
+                running_state = self._integrate_step(running_state, dt, j)
+            
+            # Phase 2: Velocity profile to target (Remaining phase)
+            shapes_rem = self._build_vel_profile(running_state, target_v, a_max, j_max)
+            final_state, rem_nodes = self._simulate_profile(running_state, shapes_rem)
+            nodes.extend(rem_nodes)
+            
+            # Calculate total duration for competition comparison
+            total_duration = sum(n.dt for n in nodes)
+            return (total_duration, nodes, final_state)
+
+        # 3. Bidirectional Competition
+        #    Try both Positive Jerk (+J) and Negative Jerk (-J).
+        #    Collect valid results into a candidate list.
+        candidates = []
+        for j in [j_max, -j_max]:
+            res = solve_for_jerk(j)
+            if res: candidates.append(res)
         
-        best_t = self._solve_brent(error_func, 0.0, t_search_max)
-        
-        if abs(error_func(best_t)) > self.EPS_SOLVER: 
+        # 4. Selection
+        #    If no valid trajectory found, return None (triggers fallback).
+        if not candidates:
             return None, None
             
-        nodes = []
-        s_switch, switch_nodes = self._integrate_saturated(curr, best_t, j_action, a_max)
+        #    Select the trajectory with the minimum total duration (Time Optimal).
+        best_res = min(candidates, key=lambda x: x[0])
         
-        for t_seg, j_seg in switch_nodes:
-            if t_seg < self.EPS_TIME: continue
-            n = curr.copy(); n.dt = t_seg; n.j = j_seg
-            nodes.append(n)
-            curr = self._integrate_step(curr, t_seg, j_seg)
-            
-        shapes_rem = self._build_vel_profile(curr, target_v, a_max, j_max)
-        _, rem_nodes = self._simulate_profile(curr, shapes_rem)
-        nodes.extend(rem_nodes)
-        
-        return nodes, curr
+        return best_res[1], best_res[2]
 
     def _plan_fallback_cruise(self, curr, target_p, target_v, v_max, a_max, j_max):
         """
