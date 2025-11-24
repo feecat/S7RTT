@@ -51,13 +51,13 @@ Draws                | 8492       | 8492
 
 ## ⚡ Performance
 
-Benchmarks conducted on C++ platforms highlight the efficiency of S7RTT:
+Benchmarks conducted on C++ platforms evaluate the performance of S7RTT compared to Ruckig:
 
-*   **Faster Computation:** S7RTT requires significantly less CPU time per calculation cycle compared to Ruckig.
-*   **Lower Jitter:** The calculation time is more deterministic with lower variance (jitter), making it highly suitable for hard real-time systems where timing budgets are strict.
+*   **Reduced Average Load:** S7RTT reduces the average CPU time per calculation cycle by approximately 30%, improving overall computational efficiency.
+*   **Comparable Real-Time Limits:** Despite the lower average, the maximum execution time (peak latency) remains similar to Ruckig. This indicates that for hard real-time constraints (worst-case scenarios), the practical performance envelope is equivalent.
 
-(Measure cycle time compare chart, The unit is nanoseconds)
-![](doc/img/Compare_CycleTime.png)
+(Measure cycle time compare in Preempt_RT Linux, The unit is nanoseconds)
+![](doc/img/Compare_CycleTime_2.png)
 
 ## 📝 Summary & Acknowledgements
 
