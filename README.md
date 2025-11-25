@@ -59,6 +59,23 @@ Benchmarks conducted on C++ platforms evaluate the performance of S7RTT compared
 (Measure cycle time compare in Preempt_RT Linux, The unit is nanoseconds)
 ![](doc/img/Compare_CycleTime_2.png)
 
+## ⚙️ Underlying Algorithms
+
+The core challenge of S-curve generation is calculating a **time-optimal trajectory** from an **arbitrary initial state** ($P_0, V_0, A_0 \neq 0$) to a target state. Since motion can be interrupted at any moment, the solver must handle non-zero initial acceleration without simply forcing it to zero first.
+
+S7RTT differentiates itself from other solvers through its numerical approach:
+
+1.  **Analytical Complexity:**
+    Libraries like Ruckig or TwinCAT typically solve cubic or quartic equations (using Cardano, Ferrari, or Newton methods) for exact roots. However, at specific boundary conditions—particularly when the target velocity is non-zero—these analytical methods can hit singularities. This often forces a fallback to bisection search.
+
+2.  **Brent’s Method & Heuristics:**
+    Instead of relying solely on analytical root-finding, S7RTT employs **trajectory extrapolation combined with Brent’s method** for iterative approximation.
+    *   This "fuzzy solving" approach prioritizes convergence stability over absolute theoretical precision.
+    *   If a time-optimal solution cannot be found numerically, the algorithm safely degrades to a strategy of "reducing acceleration to zero before planning," ensuring a valid solution exists.
+
+3.  **Usage Recommendations:**
+    To maximize performance, the algorithm is designed for a **"Plan Once, Sample Many"** workflow. Users are advised to call `plan()` only when the target changes, and use `at_time()` for per-cycle updates, rather than re-planning every cycle. However, immediate interruption with new parameters is fully supported.
+
 ## 📝 Summary & Acknowledgements
 
 S7RTT aims to provide a simple, fast, and reliable trajectory generator for single-axis motion control tasks. By simplifying the problem space (fixing target acceleration to zero), it achieves extremely high performance and code simplicity.
