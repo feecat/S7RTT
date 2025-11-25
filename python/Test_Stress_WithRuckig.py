@@ -5,11 +5,12 @@ import time
 import math
 
 REPORT_RUCKIG_ISSUES = False
-REPORT_S7RTT_ISSUES = True
+REPORT_S7RTT_ISSUES = False
 REPORT_RUCKIG_SLOWS = False
-REPORT_S7RTT_SLOWS = True
+REPORT_S7RTT_SLOWS = False
 
 SIM_TOLERANCE = 1e-3
+RUCKIG_SCALE = 1000
 
 try:
     from S7RTT import S7RTT, MotionState
@@ -65,11 +66,11 @@ def run_stress_test_with_sim(num_tests=10000):
     for i in range(1, num_tests + 1):
         cnt_total_run += 1
         
-        j_max = random.uniform(0.1, GLOBAL_J_LIMIT)
-        a_upper_bound = min(GLOBAL_A_LIMIT, j_max * 10.0)
-        a_max = random.uniform(0.1, a_upper_bound)
-        v_upper_bound = min(GLOBAL_V_LIMIT, a_max * 10.0)
-        v_max = random.uniform(0.1, v_upper_bound)
+        j_max = random.uniform(10, GLOBAL_J_LIMIT)
+        a_upper_bound = min(GLOBAL_A_LIMIT, j_max * 1.0)
+        a_max = random.uniform(10, a_upper_bound)
+        v_upper_bound = min(GLOBAL_V_LIMIT, a_max * 1.0)
+        v_max = random.uniform(10, v_upper_bound)
         
         p_limit = 5000.0
         p_start = random.uniform(-p_limit, p_limit)
@@ -119,15 +120,15 @@ def run_stress_test_with_sim(num_tests=10000):
         try:
             otg = Ruckig(1)
             inp = InputParameter(1)
-            inp.current_position = [p_start]
-            inp.current_velocity = [v_start]
-            inp.current_acceleration = [a_start]
-            inp.target_position = [p_target]
-            inp.target_velocity = [v_target]
-            inp.target_acceleration = [a_target]
-            inp.max_velocity = [v_max]
-            inp.max_acceleration = [a_max]
-            inp.max_jerk = [j_max]
+            inp.current_position = [p_start/RUCKIG_SCALE]
+            inp.current_velocity = [v_start/RUCKIG_SCALE]
+            inp.current_acceleration = [a_start/RUCKIG_SCALE]
+            inp.target_position = [p_target/RUCKIG_SCALE]
+            inp.target_velocity = [v_target/RUCKIG_SCALE]
+            inp.target_acceleration = [a_target/RUCKIG_SCALE]
+            inp.max_velocity = [v_max/RUCKIG_SCALE]
+            inp.max_acceleration = [a_max/RUCKIG_SCALE]
+            inp.max_jerk = [j_max/RUCKIG_SCALE]
             
             res_traj = Trajectory(1)
             result = otg.calculate(inp, res_traj)
@@ -137,7 +138,7 @@ def run_stress_test_with_sim(num_tests=10000):
                 final_state = res_traj.at_time(rk_dur)
                 rk_end_p = final_state[0][0] 
                 
-                if abs(rk_end_p - p_target) > SIM_TOLERANCE:
+                if abs(rk_end_p * RUCKIG_SCALE - p_target) > SIM_TOLERANCE / RUCKIG_SCALE :
                     rk_ok = False
                     cnt_rk_fail_sim += 1
                     rk_error_reason = f"Accuracy Fail (Diff={abs(rk_end_p - p_target):.4f})" 
@@ -225,6 +226,6 @@ def run_stress_test_with_sim(num_tests=10000):
 
 if __name__ == "__main__":
     try:
-        run_stress_test_with_sim(10000) 
+        run_stress_test_with_sim(100000) 
     except KeyboardInterrupt:
         print("\nTesting stopped by user.")

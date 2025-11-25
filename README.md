@@ -31,20 +31,37 @@ S7RTT is not intended to replace Ruckig for multi-DOF cases, but it offers disti
 ![](doc/img/Compare_Boundary_4.png)
     *   However, more often than not, even within the constraints, Ruckig still attempts to insert a Brake motion, which leads to a suboptimal final solution.  
 ![](doc/img/Compare_Boundary_3.png)
-    *   More seriously, Ruckig frequently reports solution failures, which is unacceptable in practical applications. Below are the results of stress tests under random conditions.  
+    *   Specifically, Ruckig recommends using "m" as the unit. If you use "mm" with a large jerk, planning failures will occur frequently, while S7RTT recommends using "mm" as the unit. Below is a comparison of scaled random stress tests in normal operation:  
 ```
 ################################################################################
 FINAL STATISTICS
 ################################################################################
-Total Tests: 10000
+Total Tests: 100000
 ----------------------------------------
 CATEGORY             | S7RTT      | RUCKIG
 ----------------------------------------
-Plan Failures        | 0          | 751
+Plan Failures        | 0          | 0
 Sim Acc Failures     | 0          | 0
 ----------------------------------------
-Faster Count         | 756        | 1
-Draws                | 8492       | 8492
+Faster Count         | 6356       | 5
+Draws                | 93639      | 93639
+################################################################################
+```
+
+    *   Below are comparisons of some random extreme cases:  
+```
+################################################################################
+FINAL STATISTICS
+################################################################################
+Total Tests: 100000
+----------------------------------------
+CATEGORY             | S7RTT      | RUCKIG
+----------------------------------------
+Plan Failures        | 0          | 169
+Sim Acc Failures     | 23         | 192
+----------------------------------------
+Faster Count         | 418        | 91
+Draws                | 99130      | 99130
 ################################################################################
 ```
    
