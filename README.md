@@ -31,10 +31,11 @@ S7RTT is not intended to replace Ruckig for multi-DOF cases, but it offers disti
 ![](doc/img/Compare_Boundary_4.png)
     *   However, more often than not, even within the constraints, Ruckig still attempts to insert a Brake motion, which leads to a suboptimal final solution.  
 ![](doc/img/Compare_Boundary_3.png)
-    *   Specifically, Ruckig recommends using "m" as the unit. If you use "mm" with a large jerk, planning failures will occur frequently, while S7RTT recommends using "mm" as the unit. Below is a comparison of scaled random stress tests in normal operation:  
+    *   Specifically, Ruckig advises using 'm' as unit to avoid high-jerk planning failures, whereas S7RTT suggests 'mm'. Here is the stress test comparison for normal and extreme cases:
+
 ```
 ################################################################################
-FINAL STATISTICS
+Test in normal operation (vmax is 1000.0, amax is 10000.0, jmax is 100000.0)
 ################################################################################
 Total Tests: 100000
 ----------------------------------------
@@ -43,25 +44,22 @@ CATEGORY             | S7RTT      | RUCKIG
 Plan Failures        | 0          | 0
 Sim Acc Failures     | 0          | 0
 ----------------------------------------
-Faster Count         | 6356       | 5
-Draws                | 93639      | 93639
+Faster Count         | 3953       | 0
+Draws                | 96047      | 96047
 ################################################################################
-```
 
-    *   Below are comparisons of some random extreme cases:  
-```
 ################################################################################
-FINAL STATISTICS
+Test in extreme cases (random vmax in [10,1000], amax in [10,10000], jmax in [10,10000])
 ################################################################################
 Total Tests: 100000
 ----------------------------------------
 CATEGORY             | S7RTT      | RUCKIG
 ----------------------------------------
-Plan Failures        | 0          | 169
-Sim Acc Failures     | 23         | 192
+Plan Failures        | 0          | 13
+Sim Acc Failures     | 2          | 13
 ----------------------------------------
-Faster Count         | 418        | 91
-Draws                | 99130      | 99130
+Faster Count         | 9039       | 1
+Draws                | 90934      | 90934
 ################################################################################
 ```
    
@@ -100,6 +98,7 @@ S7RTT aims to provide a simple, fast, and reliable trajectory generator for sing
 ### Acknowledgements
 
 Special thanks to **Gemini 3 Pro** for the assistance in the development and optimization of this library.
+
 
 
 
