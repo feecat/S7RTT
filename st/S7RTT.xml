@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-12-01T11:42:22.9281417" />
-  <contentHeader name="OpenSML_CodesysDemo_3.5.20.project" modificationDateTime="2025-12-01T11:41:48.1642229">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-12-01T11:44:53.1277508" />
+  <contentHeader name="S7RTT.project" modificationDateTime="2025-12-01T09:40:39.1420978">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -15,9 +15,7 @@
     </coordinateInfo>
     <addData>
       <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
-        <ProjectInformation>
-          <property name="Project" type="string">OpenSML_CodesysDemo_3.5.20</property>
-        </ProjectInformation>
+        <ProjectInformation />
       </data>
     </addData>
   </contentHeader>
@@ -117,6 +115,246 @@
       </dataType>
     </dataTypes>
     <pous>
+      <pou name="FB_S7RTT_OTG" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="ControlInterface">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">false=position, true=velocity</xhtml>
+              </documentation>
+            </variable>
+            <variable name="TargetPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="TargetVelocity">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0" />
+              </initialValue>
+            </variable>
+            <variable name="CycleTime">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.001" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">1ms</xhtml>
+              </documentation>
+            </variable>
+            <variable name="MaxVelocity">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="MaxAcceleration">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="MaxJerk">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="CurrentPosition">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">set when init</xhtml>
+              </documentation>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="NewPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="NewVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="NewAcceleration">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="xError">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="_ControlInterface">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="_TargetPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_TargetVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_CycleTime">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxAcceleration">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxJerk">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_CurrentPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="xExecute">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="fbS7Planner">
+              <type>
+                <derived name="FB_S7RTT_Plan" />
+              </type>
+            </variable>
+            <variable name="stS7Limits">
+              <type>
+                <derived name="ST_MotionLimits" />
+              </type>
+            </variable>
+            <variable name="stS7Start">
+              <type>
+                <derived name="ST_MotionState" />
+              </type>
+            </variable>
+            <variable name="stS7Result">
+              <type>
+                <derived name="ST_MotionState" />
+              </type>
+            </variable>
+            <variable name="fS7Timer">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">// check if input changed
+IF (ControlInterface &lt;&gt; _ControlInterface) OR
+	(TargetPosition &lt;&gt; _TargetPosition) OR
+	(TargetVelocity &lt;&gt; _TargetVelocity) OR
+	(CycleTime &lt;&gt; _CycleTime) OR
+	(MaxVelocity &lt;&gt; _MaxVelocity) OR
+	(MaxAcceleration &lt;&gt; _MaxAcceleration) OR
+	(MaxJerk &lt;&gt; _MaxJerk) OR
+	(CurrentPosition &lt;&gt; _CurrentPosition) THEN
+	
+	IF CurrentPosition &lt;&gt; _CurrentPosition THEN
+		stS7Start.fPos := CurrentPosition;
+		stS7Result.fPos := CurrentPosition;
+		_CurrentPosition := CurrentPosition;
+	END_IF
+	_ControlInterface := ControlInterface;
+	_TargetPosition := TargetPosition;
+	_TargetVelocity := TargetVelocity;
+	_CycleTime := CycleTime;
+	_MaxVelocity := MaxVelocity;
+	_MaxAcceleration := MaxAcceleration;
+	_MaxJerk := MaxJerk;
+	
+	xExecute:=TRUE;
+END_IF
+
+// main logic
+IF xExecute THEN
+    stS7Start.fPos := stS7Result.fPos;
+    stS7Start.fVel := stS7Result.fVel;
+    stS7Start.fAcc := stS7Result.fAcc;
+    stS7Start.fDuration := 0.0;
+    
+    stS7Limits.fVelMax := MaxVelocity;
+    stS7Limits.fAccMax := MaxAcceleration;
+    stS7Limits.fJerkMax := MaxJerk;
+    
+    fbS7Planner.ModeVelocity := ControlInterface;
+    fbS7Planner.StartState := stS7Start;
+    fbS7Planner.TargetPos := TargetPosition;
+    fbS7Planner.TargetVel := TargetVelocity; 
+    fbS7Planner.Limits := stS7Limits;
+    
+    fS7Timer := 0.0;
+END_IF
+
+fbS7Planner(Execute:=xExecute,Error=&gt;xError);
+
+xExecute := FALSE;
+
+fS7Timer := fS7Timer + CycleTime;
+
+stS7Result := FC_S7RTT_AtTime(
+	Trajectory := fbS7Planner.Trajectory, 
+	SegCount := fbS7Planner.SegmentCount, 
+	ElapsedTime := fS7Timer
+);
+
+NewPosition:=stS7Result.fPos;
+NewVelocity:=stS7Result.fVel;
+NewAcceleration:=stS7Result.fAcc;
+
+
+</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>a4ba0152-5153-418a-8491-262185d3062f</ObjectId>
+          </data>
+        </addData>
+      </pou>
       <pou name="FB_S7RTT_Plan" pouType="functionBlock">
         <interface>
           <inputVars>
@@ -1543,246 +1781,6 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
           </data>
         </addData>
       </pou>
-      <pou name="FB_S7RTT_OTG" pouType="functionBlock">
-        <interface>
-          <inputVars>
-            <variable name="ControlInterface">
-              <type>
-                <BOOL />
-              </type>
-              <initialValue>
-                <simpleValue value="FALSE" />
-              </initialValue>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">false=position, true=velocity</xhtml>
-              </documentation>
-            </variable>
-            <variable name="TargetPosition">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="TargetVelocity">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="0" />
-              </initialValue>
-            </variable>
-            <variable name="CycleTime">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="0.001" />
-              </initialValue>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">1ms</xhtml>
-              </documentation>
-            </variable>
-            <variable name="MaxVelocity">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="10" />
-              </initialValue>
-            </variable>
-            <variable name="MaxAcceleration">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="10" />
-              </initialValue>
-            </variable>
-            <variable name="MaxJerk">
-              <type>
-                <LREAL />
-              </type>
-              <initialValue>
-                <simpleValue value="10" />
-              </initialValue>
-            </variable>
-            <variable name="CurrentPosition">
-              <type>
-                <LREAL />
-              </type>
-              <documentation>
-                <xhtml xmlns="http://www.w3.org/1999/xhtml">set when init</xhtml>
-              </documentation>
-            </variable>
-          </inputVars>
-          <outputVars>
-            <variable name="NewPosition">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="NewVelocity">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="NewAcceleration">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="xError">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-          </outputVars>
-          <localVars>
-            <variable name="_ControlInterface">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="_TargetPosition">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_TargetVelocity">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_CycleTime">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_MaxVelocity">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_MaxAcceleration">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_MaxJerk">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="_CurrentPosition">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="xExecute">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="fbS7Planner">
-              <type>
-                <derived name="FB_S7RTT_Plan" />
-              </type>
-            </variable>
-            <variable name="stS7Limits">
-              <type>
-                <derived name="ST_MotionLimits" />
-              </type>
-            </variable>
-            <variable name="stS7Start">
-              <type>
-                <derived name="ST_MotionState" />
-              </type>
-            </variable>
-            <variable name="stS7Result">
-              <type>
-                <derived name="ST_MotionState" />
-              </type>
-            </variable>
-            <variable name="fS7Timer">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </localVars>
-        </interface>
-        <body>
-          <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">// check if input changed
-IF (ControlInterface &lt;&gt; _ControlInterface) OR
-	(TargetPosition &lt;&gt; _TargetPosition) OR
-	(TargetVelocity &lt;&gt; _TargetVelocity) OR
-	(CycleTime &lt;&gt; _CycleTime) OR
-	(MaxVelocity &lt;&gt; _MaxVelocity) OR
-	(MaxAcceleration &lt;&gt; _MaxAcceleration) OR
-	(MaxJerk &lt;&gt; _MaxJerk) OR
-	(CurrentPosition &lt;&gt; _CurrentPosition) THEN
-	
-	IF CurrentPosition &lt;&gt; _CurrentPosition THEN
-		stS7Start.fPos := CurrentPosition;
-		stS7Result.fPos := CurrentPosition;
-		_CurrentPosition := CurrentPosition;
-	END_IF
-	_ControlInterface := ControlInterface;
-	_TargetPosition := TargetPosition;
-	_TargetVelocity := TargetVelocity;
-	_CycleTime := CycleTime;
-	_MaxVelocity := MaxVelocity;
-	_MaxAcceleration := MaxAcceleration;
-	_MaxJerk := MaxJerk;
-	
-	xExecute:=TRUE;
-END_IF
-
-// main logic
-IF xExecute THEN
-    stS7Start.fPos := stS7Result.fPos;
-    stS7Start.fVel := stS7Result.fVel;
-    stS7Start.fAcc := stS7Result.fAcc;
-    stS7Start.fDuration := 0.0;
-    
-    stS7Limits.fVelMax := MaxVelocity;
-    stS7Limits.fAccMax := MaxAcceleration;
-    stS7Limits.fJerkMax := MaxJerk;
-    
-    fbS7Planner.ModeVelocity := ControlInterface;
-    fbS7Planner.StartState := stS7Start;
-    fbS7Planner.TargetPos := TargetPosition;
-    fbS7Planner.TargetVel := TargetVelocity; 
-    fbS7Planner.Limits := stS7Limits;
-    
-    fS7Timer := 0.0;
-END_IF
-
-fbS7Planner(Execute:=xExecute,Error=&gt;xError);
-
-xExecute := FALSE;
-
-fS7Timer := fS7Timer + CycleTime;
-
-stS7Result := FC_S7RTT_AtTime(
-	Trajectory := fbS7Planner.Trajectory, 
-	SegCount := fbS7Planner.SegmentCount, 
-	ElapsedTime := fS7Timer
-);
-
-NewPosition:=stS7Result.fPos;
-NewVelocity:=stS7Result.fVel;
-NewAcceleration:=stS7Result.fAcc;
-
-
-</xhtml>
-          </ST>
-        </body>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>a4ba0152-5153-418a-8491-262185d3062f</ObjectId>
-          </data>
-        </addData>
-      </pou>
     </pous>
   </types>
   <instances>
@@ -1791,16 +1789,14 @@ NewAcceleration:=stS7Result.fAcc;
   <addData>
     <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
       <ProjectStructure>
-        <Folder Name="OpenSML">
-          <Folder Name="S7RTT">
-            <Object Name="FB_S7RTT_Plan" ObjectId="95643a16-59c8-44c0-98a3-4791271629c4" />
-            <Object Name="FC_S7RTT_AtTime" ObjectId="3021c349-a048-4635-8ba3-ea39d136f9d6" />
-            <Object Name="FC_S7RTT_BuildProfile" ObjectId="52f0419d-84c7-4f14-92ea-d17f1133d6cf" />
-            <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="ee9c0a18-4d98-4537-bacd-83584f252238" />
-            <Object Name="ST_MotionLimits" ObjectId="d3412a66-ab42-4656-b5ac-8ceac29439de" />
-            <Object Name="ST_MotionState" ObjectId="093654ef-94b9-49f9-9c6c-4acf457e8661" />
-            <Object Name="FB_S7RTT_OTG" ObjectId="a4ba0152-5153-418a-8491-262185d3062f" />
-          </Folder>
+        <Folder Name="S7RTT">
+          <Object Name="FB_S7RTT_OTG" ObjectId="a4ba0152-5153-418a-8491-262185d3062f" />
+          <Object Name="FB_S7RTT_Plan" ObjectId="95643a16-59c8-44c0-98a3-4791271629c4" />
+          <Object Name="FC_S7RTT_AtTime" ObjectId="3021c349-a048-4635-8ba3-ea39d136f9d6" />
+          <Object Name="FC_S7RTT_BuildProfile" ObjectId="52f0419d-84c7-4f14-92ea-d17f1133d6cf" />
+          <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="ee9c0a18-4d98-4537-bacd-83584f252238" />
+          <Object Name="ST_MotionLimits" ObjectId="d3412a66-ab42-4656-b5ac-8ceac29439de" />
+          <Object Name="ST_MotionState" ObjectId="093654ef-94b9-49f9-9c6c-4acf457e8661" />
         </Folder>
       </ProjectStructure>
     </data>
