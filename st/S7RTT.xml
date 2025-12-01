@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-11-23T23:33:08.0028067" />
-  <contentHeader name="Untitled6.project" modificationDateTime="2025-11-23T23:33:00.7391758">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-12-01T11:42:22.9281417" />
+  <contentHeader name="OpenSML_CodesysDemo_3.5.20.project" modificationDateTime="2025-12-01T11:41:48.1642229">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -15,12 +15,40 @@
     </coordinateInfo>
     <addData>
       <data name="http://www.3s-software.com/plcopenxml/projectinformation" handleUnknown="implementation">
-        <ProjectInformation />
+        <ProjectInformation>
+          <property name="Project" type="string">OpenSML_CodesysDemo_3.5.20</property>
+        </ProjectInformation>
       </data>
     </addData>
   </contentHeader>
   <types>
     <dataTypes>
+      <dataType name="ST_MotionLimits">
+        <baseType>
+          <struct>
+            <variable name="fVelMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fAccMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="fJerkMax">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </struct>
+        </baseType>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>d3412a66-ab42-4656-b5ac-8ceac29439de</ObjectId>
+          </data>
+        </addData>
+      </dataType>
       <dataType name="ST_MotionState">
         <baseType>
           <struct>
@@ -87,165 +115,8 @@
           </data>
         </addData>
       </dataType>
-      <dataType name="ST_MotionLimits">
-        <baseType>
-          <struct>
-            <variable name="fVelMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="fAccMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="fJerkMax">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </struct>
-        </baseType>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>d3412a66-ab42-4656-b5ac-8ceac29439de</ObjectId>
-          </data>
-        </addData>
-      </dataType>
     </dataTypes>
     <pous>
-      <pou name="FC_S7RTT_CalcTrajDist" pouType="function">
-        <interface>
-          <returnType>
-            <LREAL />
-          </returnType>
-          <inputVars>
-            <variable name="v_peak">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="start_v">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="start_a">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="target_v">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_max">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </inputVars>
-          <localVars>
-            <variable name="t_buf">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-            <variable name="j_buf">
-              <type>
-                <array>
-                  <dimension lower="1" upper="5" />
-                  <baseType>
-                    <LREAL />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-            <variable name="cnt">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="i">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="v_curr">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="a_curr">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="dist_total">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_seg">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="j_seg">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-          </localVars>
-        </interface>
-        <body>
-          <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">dist_total := 0.0;
-v_curr := start_v;
-a_curr := start_a;
-
-// Phase 1: Start -&gt; Peak Velocity
-cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, v_peak, a_max, j_max, t_buf, j_buf);
-FOR i := 1 TO cnt DO
-	t_seg := t_buf[i];
-	j_seg := j_buf[i];
-    // Standard kinematic integration: p = p0 + v0*t + 0.5*a0*t^2 + 1/6*j*t^3
-	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
-	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
-	a_curr := a_curr + j_seg * t_seg;
-END_FOR;
-
-// Phase 2: Peak Velocity -&gt; Target Velocity
-cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, target_v, a_max, j_max, t_buf, j_buf);
-FOR i := 1 TO cnt DO
-	t_seg := t_buf[i];
-	j_seg := j_buf[i];
-	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
-	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
-	a_curr := a_curr + j_seg * t_seg;
-END_FOR;
-
-FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
-          </ST>
-        </body>
-        <addData>
-          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>ee9c0a18-4d98-4537-bacd-83584f252238</ObjectId>
-          </data>
-        </addData>
-      </pou>
       <pou name="FB_S7RTT_Plan" pouType="functionBlock">
         <interface>
           <inputVars>
@@ -789,7 +660,7 @@ FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
             <xhtml xmlns="http://www.w3.org/1999/xhtml">// ==============================================================================
 // File Name:    FB_S7RTT_Plan.st
 // Author:       feecat
-// Version:      V1.7.1
+// Version:      V1.7.2
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -875,13 +746,21 @@ IF ModeVelocity THEN
 	IF v_mid &lt; -Limits.fVelMax THEN v_mid := -Limits.fVelMax; END_IF;
 
 	shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, v_mid, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-	FOR i := 1 TO shape_cnt DO
-		IF SegmentCount &lt; 32 THEN
+	IF shape_cnt &gt; 0 THEN
+		FOR i := 1 TO shape_cnt DO
+			IF SegmentCount &lt; 32 THEN
+				SegmentCount := SegmentCount + 1;
+				Trajectory[SegmentCount].fDuration := t_shape_buf[i];
+				Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
+			END_IF;
+		END_FOR;
+	ELSE
+		FOR i := 1 TO 31 DO
 			SegmentCount := SegmentCount + 1;
-			Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-			Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-		END_IF;
-	END_FOR;
+			Trajectory[SegmentCount].fDuration := 0;
+			Trajectory[SegmentCount].fJerk     := 0;
+		END_FOR;
+	END_IF
 ELSE
 	// --- Position Mode ---
 	dist_req := TargetPos - c_pos;
@@ -1228,8 +1107,8 @@ Done := TRUE;</xhtml>
         <body>
           <ST>
             <xhtml xmlns="http://www.w3.org/1999/xhtml">IF SegCount &lt;= 0 THEN
-    // No trajectory, return zero/empty state
-    FC_S7RTT_AtTime.fPos := 0.0; FC_S7RTT_AtTime.fVel := 0.0; FC_S7RTT_AtTime.fAcc := 0.0;
+    // No trajectory, return first state
+    FC_S7RTT_AtTime.fPos := Trajectory[1].fPos; FC_S7RTT_AtTime.fVel := 0.0; FC_S7RTT_AtTime.fAcc := 0.0;
     RETURN;
 END_IF;
 
@@ -1533,94 +1412,45 @@ FC_S7RTT_BuildProfile := cnt;</xhtml>
           </data>
         </addData>
       </pou>
-      <pou name="FB_S7RTT_Plan_Velocity" pouType="functionBlock">
+      <pou name="FC_S7RTT_CalcTrajDist" pouType="function">
         <interface>
+          <returnType>
+            <LREAL />
+          </returnType>
           <inputVars>
-            <variable name="Execute">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="StartState">
-              <type>
-                <derived name="ST_MotionState" />
-              </type>
-            </variable>
-            <variable name="TargetVel">
+            <variable name="v_peak">
               <type>
                 <LREAL />
               </type>
             </variable>
-            <variable name="Limits">
+            <variable name="start_v">
               <type>
-                <derived name="ST_MotionLimits" />
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="start_a">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="target_v">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="a_max">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_max">
+              <type>
+                <LREAL />
               </type>
             </variable>
           </inputVars>
-          <outputVars>
-            <variable name="Done">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="Error">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="SegmentCount">
-              <type>
-                <INT />
-              </type>
-            </variable>
-            <variable name="Trajectory">
-              <type>
-                <array>
-                  <dimension lower="1" upper="32" />
-                  <baseType>
-                    <derived name="ST_MotionState" />
-                  </baseType>
-                </array>
-              </type>
-            </variable>
-          </outputVars>
           <localVars>
-            <variable name="trig_exec">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="prev_exec">
-              <type>
-                <BOOL />
-              </type>
-            </variable>
-            <variable name="c_pos">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="c_vel">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="c_acc">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_rec">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="safe_target_v">
-              <type>
-                <LREAL />
-              </type>
-            </variable>
-            <variable name="t_shape_buf">
+            <variable name="t_buf">
               <type>
                 <array>
                   <dimension lower="1" upper="5" />
@@ -1630,7 +1460,7 @@ FC_S7RTT_BuildProfile := cnt;</xhtml>
                 </array>
               </type>
             </variable>
-            <variable name="j_shape_buf">
+            <variable name="j_buf">
               <type>
                 <array>
                   <dimension lower="1" upper="5" />
@@ -1640,7 +1470,7 @@ FC_S7RTT_BuildProfile := cnt;</xhtml>
                 </array>
               </type>
             </variable>
-            <variable name="shape_cnt">
+            <variable name="cnt">
               <type>
                 <INT />
               </type>
@@ -1650,133 +1480,306 @@ FC_S7RTT_BuildProfile := cnt;</xhtml>
                 <INT />
               </type>
             </variable>
-            <variable name="j_restore">
+            <variable name="v_curr">
               <type>
                 <LREAL />
               </type>
             </variable>
-            <variable name="EPS_VAL">
+            <variable name="a_curr">
               <type>
                 <LREAL />
               </type>
-              <initialValue>
-                <simpleValue value="1E-10" />
-              </initialValue>
+            </variable>
+            <variable name="dist_total">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="t_seg">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="j_seg">
+              <type>
+                <LREAL />
+              </type>
             </variable>
           </localVars>
         </interface>
         <body>
           <ST>
-            <xhtml xmlns="http://www.w3.org/1999/xhtml">trig_exec := Execute AND NOT prev_exec;
-prev_exec := Execute;
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">dist_total := 0.0;
+v_curr := start_v;
+a_curr := start_a;
 
-IF NOT Execute THEN
-	Done := FALSE;
-	Error := FALSE;
-	RETURN;
-END_IF
-
-IF NOT trig_exec THEN
-    RETURN;
-END_IF;
-
-// --- Initialization ---
-Done := FALSE;
-Error := FALSE;
-SegmentCount := 0;
-
-IF Limits.fVelMax &lt;= 0.0 OR Limits.fAccMax &lt;= 0.0 OR Limits.fJerkMax &lt;= 0.0 THEN
-    Error := TRUE;
-    RETURN;
-END_IF;
-
-// Load internal state
-c_pos := StartState.fPos;
-c_vel := StartState.fVel;
-c_acc := StartState.fAcc;
-
-// ========================================================
-// 1. Safety Deceleration (Handle Initial Accel Overload)
-// ========================================================
-IF c_acc &gt; Limits.fAccMax + EPS_VAL THEN
-    // Case: Accel too high positive, pull down with negative jerk
-    t_rec := (c_acc - Limits.fAccMax) / Limits.fJerkMax;
-    IF t_rec &gt; 0.0 THEN
-        SegmentCount := SegmentCount + 1;
-        Trajectory[SegmentCount].fDuration := t_rec;
-        Trajectory[SegmentCount].fJerk     := -Limits.fJerkMax;
-        
-        // Integrate state forward
-        c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * (-Limits.fJerkMax) * t_rec*t_rec*t_rec;
-        c_vel := c_vel + c_acc * t_rec + 0.5 * (-Limits.fJerkMax) * t_rec*t_rec;
-        c_acc := Limits.fAccMax; // Clamp to avoid drift
-    END_IF;
-    
-ELSIF c_acc &lt; -Limits.fAccMax - EPS_VAL THEN
-    // Case: Accel too high negative, pull up with positive jerk
-    t_rec := (-Limits.fAccMax - c_acc) / Limits.fJerkMax;
-    IF t_rec &gt; 0.0 THEN
-        SegmentCount := SegmentCount + 1;
-        Trajectory[SegmentCount].fDuration := t_rec;
-        Trajectory[SegmentCount].fJerk     := Limits.fJerkMax;
-        
-        // Integrate state forward
-        c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * (Limits.fJerkMax) * t_rec*t_rec*t_rec;
-        c_vel := c_vel + c_acc * t_rec + 0.5 * (Limits.fJerkMax) * t_rec*t_rec;
-        c_acc := -Limits.fAccMax; // Clamp
-    END_IF;
-END_IF;
-
-// ========================================================
-// 2. Clamp Target Velocity
-// ========================================================
-safe_target_v := TargetVel;
-IF safe_target_v &gt; Limits.fVelMax THEN safe_target_v := Limits.fVelMax; END_IF;
-IF safe_target_v &lt; -Limits.fVelMax THEN safe_target_v := -Limits.fVelMax; END_IF;
-
-// ========================================================
-// 3. Build Velocity Profile
-// ========================================================
-// Uses the helper function to calculate S-Curve times
-shape_cnt := FC_S7RTT_BuildProfile(c_vel, c_acc, safe_target_v, Limits.fAccMax, Limits.fJerkMax, t_shape_buf, j_shape_buf);
-
-FOR i := 1 TO shape_cnt DO
-    IF SegmentCount &lt; 32 THEN
-        SegmentCount := SegmentCount + 1;
-        Trajectory[SegmentCount].fDuration := t_shape_buf[i];
-        Trajectory[SegmentCount].fJerk     := j_shape_buf[i];
-    END_IF;
+// Phase 1: Start -&gt; Peak Velocity
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, v_peak, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+    // Standard kinematic integration: p = p0 + v0*t + 0.5*a0*t^2 + 1/6*j*t^3
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
 END_FOR;
 
-// ========================================================
-// 4. Final Pass: Calculate Absolute Positions for Nodes
-// ========================================================
-// Re-run integration from start to fill in P/V/A for output array
-c_pos := StartState.fPos; 
-c_vel := StartState.fVel; 
-c_acc := StartState.fAcc;
-
-FOR i := 1 TO SegmentCount DO
-    // Store the starting state of this segment into the array
-    Trajectory[i].fPos := c_pos;
-    Trajectory[i].fVel := c_vel;
-    Trajectory[i].fAcc := c_acc;
-    
-    t_rec := Trajectory[i].fDuration;
-    j_restore := Trajectory[i].fJerk;
-    
-    // Integrate to find start state for NEXT segment
-    c_pos := c_pos + c_vel * t_rec + 0.5 * c_acc * t_rec*t_rec + (1.0/6.0) * j_restore * t_rec*t_rec*t_rec;
-    c_vel := c_vel + c_acc * t_rec + 0.5 * j_restore * t_rec*t_rec;
-    c_acc := c_acc + j_restore * t_rec;
+// Phase 2: Peak Velocity -&gt; Target Velocity
+cnt := FC_S7RTT_BuildProfile(v_curr, a_curr, target_v, a_max, j_max, t_buf, j_buf);
+FOR i := 1 TO cnt DO
+	t_seg := t_buf[i];
+	j_seg := j_buf[i];
+	dist_total := dist_total + v_curr * t_seg + 0.5 * a_curr * t_seg*t_seg + (1.0/6.0) * j_seg * t_seg*t_seg*t_seg;
+	v_curr := v_curr + a_curr * t_seg + 0.5 * j_seg * t_seg*t_seg;
+	a_curr := a_curr + j_seg * t_seg;
 END_FOR;
 
-Done := TRUE;</xhtml>
+FC_S7RTT_CalcTrajDist := dist_total;</xhtml>
           </ST>
         </body>
         <addData>
           <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
-            <ObjectId>fab213c4-3f9c-429d-ba05-97ece8a5b147</ObjectId>
+            <ObjectId>ee9c0a18-4d98-4537-bacd-83584f252238</ObjectId>
+          </data>
+        </addData>
+      </pou>
+      <pou name="FB_S7RTT_OTG" pouType="functionBlock">
+        <interface>
+          <inputVars>
+            <variable name="ControlInterface">
+              <type>
+                <BOOL />
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">false=position, true=velocity</xhtml>
+              </documentation>
+            </variable>
+            <variable name="TargetPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="TargetVelocity">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0" />
+              </initialValue>
+            </variable>
+            <variable name="CycleTime">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="0.001" />
+              </initialValue>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">1ms</xhtml>
+              </documentation>
+            </variable>
+            <variable name="MaxVelocity">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="MaxAcceleration">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="MaxJerk">
+              <type>
+                <LREAL />
+              </type>
+              <initialValue>
+                <simpleValue value="10" />
+              </initialValue>
+            </variable>
+            <variable name="CurrentPosition">
+              <type>
+                <LREAL />
+              </type>
+              <documentation>
+                <xhtml xmlns="http://www.w3.org/1999/xhtml">set when init</xhtml>
+              </documentation>
+            </variable>
+          </inputVars>
+          <outputVars>
+            <variable name="NewPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="NewVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="NewAcceleration">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="xError">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+          </outputVars>
+          <localVars>
+            <variable name="_ControlInterface">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="_TargetPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_TargetVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_CycleTime">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxVelocity">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxAcceleration">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_MaxJerk">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="_CurrentPosition">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+            <variable name="xExecute">
+              <type>
+                <BOOL />
+              </type>
+            </variable>
+            <variable name="fbS7Planner">
+              <type>
+                <derived name="FB_S7RTT_Plan" />
+              </type>
+            </variable>
+            <variable name="stS7Limits">
+              <type>
+                <derived name="ST_MotionLimits" />
+              </type>
+            </variable>
+            <variable name="stS7Start">
+              <type>
+                <derived name="ST_MotionState" />
+              </type>
+            </variable>
+            <variable name="stS7Result">
+              <type>
+                <derived name="ST_MotionState" />
+              </type>
+            </variable>
+            <variable name="fS7Timer">
+              <type>
+                <LREAL />
+              </type>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml xmlns="http://www.w3.org/1999/xhtml">// check if input changed
+IF (ControlInterface &lt;&gt; _ControlInterface) OR
+	(TargetPosition &lt;&gt; _TargetPosition) OR
+	(TargetVelocity &lt;&gt; _TargetVelocity) OR
+	(CycleTime &lt;&gt; _CycleTime) OR
+	(MaxVelocity &lt;&gt; _MaxVelocity) OR
+	(MaxAcceleration &lt;&gt; _MaxAcceleration) OR
+	(MaxJerk &lt;&gt; _MaxJerk) OR
+	(CurrentPosition &lt;&gt; _CurrentPosition) THEN
+	
+	IF CurrentPosition &lt;&gt; _CurrentPosition THEN
+		stS7Start.fPos := CurrentPosition;
+		stS7Result.fPos := CurrentPosition;
+		_CurrentPosition := CurrentPosition;
+	END_IF
+	_ControlInterface := ControlInterface;
+	_TargetPosition := TargetPosition;
+	_TargetVelocity := TargetVelocity;
+	_CycleTime := CycleTime;
+	_MaxVelocity := MaxVelocity;
+	_MaxAcceleration := MaxAcceleration;
+	_MaxJerk := MaxJerk;
+	
+	xExecute:=TRUE;
+END_IF
+
+// main logic
+IF xExecute THEN
+    stS7Start.fPos := stS7Result.fPos;
+    stS7Start.fVel := stS7Result.fVel;
+    stS7Start.fAcc := stS7Result.fAcc;
+    stS7Start.fDuration := 0.0;
+    
+    stS7Limits.fVelMax := MaxVelocity;
+    stS7Limits.fAccMax := MaxAcceleration;
+    stS7Limits.fJerkMax := MaxJerk;
+    
+    fbS7Planner.ModeVelocity := ControlInterface;
+    fbS7Planner.StartState := stS7Start;
+    fbS7Planner.TargetPos := TargetPosition;
+    fbS7Planner.TargetVel := TargetVelocity; 
+    fbS7Planner.Limits := stS7Limits;
+    
+    fS7Timer := 0.0;
+END_IF
+
+fbS7Planner(Execute:=xExecute,Error=&gt;xError);
+
+xExecute := FALSE;
+
+fS7Timer := fS7Timer + CycleTime;
+
+stS7Result := FC_S7RTT_AtTime(
+	Trajectory := fbS7Planner.Trajectory, 
+	SegCount := fbS7Planner.SegmentCount, 
+	ElapsedTime := fS7Timer
+);
+
+NewPosition:=stS7Result.fPos;
+NewVelocity:=stS7Result.fVel;
+NewAcceleration:=stS7Result.fAcc;
+
+
+</xhtml>
+          </ST>
+        </body>
+        <addData>
+          <data name="http://www.3s-software.com/plcopenxml/objectid" handleUnknown="discard">
+            <ObjectId>a4ba0152-5153-418a-8491-262185d3062f</ObjectId>
           </data>
         </addData>
       </pou>
@@ -1788,14 +1791,16 @@ Done := TRUE;</xhtml>
   <addData>
     <data name="http://www.3s-software.com/plcopenxml/projectstructure" handleUnknown="discard">
       <ProjectStructure>
-        <Folder Name="S7RTT">
-          <Object Name="ST_MotionState" ObjectId="093654ef-94b9-49f9-9c6c-4acf457e8661" />
-          <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="ee9c0a18-4d98-4537-bacd-83584f252238" />
-          <Object Name="ST_MotionLimits" ObjectId="d3412a66-ab42-4656-b5ac-8ceac29439de" />
-          <Object Name="FB_S7RTT_Plan" ObjectId="95643a16-59c8-44c0-98a3-4791271629c4" />
-          <Object Name="FC_S7RTT_AtTime" ObjectId="3021c349-a048-4635-8ba3-ea39d136f9d6" />
-          <Object Name="FC_S7RTT_BuildProfile" ObjectId="52f0419d-84c7-4f14-92ea-d17f1133d6cf" />
-          <Object Name="FB_S7RTT_Plan_Velocity" ObjectId="fab213c4-3f9c-429d-ba05-97ece8a5b147" />
+        <Folder Name="OpenSML">
+          <Folder Name="S7RTT">
+            <Object Name="FB_S7RTT_Plan" ObjectId="95643a16-59c8-44c0-98a3-4791271629c4" />
+            <Object Name="FC_S7RTT_AtTime" ObjectId="3021c349-a048-4635-8ba3-ea39d136f9d6" />
+            <Object Name="FC_S7RTT_BuildProfile" ObjectId="52f0419d-84c7-4f14-92ea-d17f1133d6cf" />
+            <Object Name="FC_S7RTT_CalcTrajDist" ObjectId="ee9c0a18-4d98-4537-bacd-83584f252238" />
+            <Object Name="ST_MotionLimits" ObjectId="d3412a66-ab42-4656-b5ac-8ceac29439de" />
+            <Object Name="ST_MotionState" ObjectId="093654ef-94b9-49f9-9c6c-4acf457e8661" />
+            <Object Name="FB_S7RTT_OTG" ObjectId="a4ba0152-5153-418a-8491-262185d3062f" />
+          </Folder>
         </Folder>
       </ProjectStructure>
     </data>
