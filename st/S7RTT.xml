@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-12-01T11:44:53.1277508" />
-  <contentHeader name="S7RTT.project" modificationDateTime="2025-12-01T09:40:39.1420978">
+  <fileHeader companyName="" productName="CODESYS" productVersion="CODESYS V3.5 SP20" creationDateTime="2025-12-18T14:55:43.2695499" />
+  <contentHeader name="Untitled22.project" modificationDateTime="2025-12-18T14:55:30.1458619">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />
@@ -898,7 +898,7 @@ NewAcceleration:=stS7Result.fAcc;
             <xhtml xmlns="http://www.w3.org/1999/xhtml">// ==============================================================================
 // File Name:    FB_S7RTT_Plan.st
 // Author:       feecat
-// Version:      V1.7.2
+// Version:      V1.8.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -1261,6 +1261,12 @@ FOR i := 1 TO SegmentCount DO
 	t_rec := Trajectory[i].fDuration; j_restore := Trajectory[i].fJerk;
 	c_pos:=c_pos+c_vel*t_rec+0.5*c_acc*t_rec*t_rec+(1.0/6.0)*j_restore*t_rec*t_rec*t_rec; c_vel:=c_vel+c_acc*t_rec+0.5*j_restore*t_rec*t_rec; c_acc:=c_acc+j_restore*t_rec;
 END_FOR;
+
+IF SegmentCount = 0 THEN
+	Trajectory[1]:= StartState;
+	Trajectory[1].fDuration := 0; Trajectory[1].fJerk := 0; Trajectory[1].fAcc := 0;
+	SegmentCount := 1;
+END_IF
 
 Done := TRUE;
 Done := TRUE;</xhtml>

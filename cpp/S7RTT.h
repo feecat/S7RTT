@@ -1,7 +1,7 @@
 // ==============================================================================
 // File Name:    S7RTT.h
 // Author:       feecat
-// Version:      V1.7.1
+// Version:      V1.8.1
 // Description:  Simple 7seg Real-Time Trajectory Generator
 // Website:      https://github.com/feecat/S7RTT
 // License:      Apache License Version 2.0
@@ -609,6 +609,13 @@ public:
         // 4. Precision Refinement
         _refine_trajectory_precision(final_nodes, start_state, target_p);
 
+        if (final_nodes.empty()) {
+            curr.dt = 0.0;
+            curr.j = 0.0;
+            curr.a = 0.0;
+            final_nodes.push_back(curr);
+        }
+		
         return final_nodes;
     }
 
@@ -622,6 +629,12 @@ public:
         TinyProfile<3> shapes;
         _build_vel_profile(shapes, curr, safe_target_v, a_max, j_max);
         _append_from_profile(final_nodes, curr, shapes);
+        if (final_nodes.empty()) {
+            curr.dt = 0.0;
+            curr.j = 0.0;
+            curr.a = 0.0; 
+            final_nodes.push_back(curr);
+        }
         return final_nodes;
     }
 

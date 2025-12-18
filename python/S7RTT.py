@@ -1,7 +1,7 @@
 # ==============================================================================
 # File Name:    S7RTT.py
 # Author:       feecat
-# Version:      V1.7
+# Version:      V1.8
 # Description:  Simple 7seg Real-Time Trajectory Generator
 # Website:      https://github.com/feecat/S7RTT
 # License:      Apache License Version 2.0
@@ -524,6 +524,12 @@ class S7RTT:
         #    Fix small floating point errors by adjusting cruise segments if available
         self._refine_trajectory_precision(final_nodes, start_state, target_p)
 
+        if not final_nodes:
+            curr.dt = 0.0
+            curr.j = 0.0
+            curr.a = 0.0
+            final_nodes.append(curr.copy())
+        
         return final_nodes
     
     def plan_velocity(self, start_state, target_v, v_max, a_max, j_max):
@@ -556,6 +562,12 @@ class S7RTT:
         # Simulates the shapes to create the MotionState objects
         _, profile_nodes = self._simulate_profile(curr, shapes)
         nodes.extend(profile_nodes)
+        
+        if not nodes:
+            curr.dt = 0.0
+            curr.j = 0.0
+            curr.a = 0.0
+            nodes.append(curr.copy())
 
         return nodes
 
